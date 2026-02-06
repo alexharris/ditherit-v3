@@ -167,16 +167,23 @@ export function usePalette() {
   }
 
   function setPaletteFromRgb(rgbPalette: number[][]) {
-    paletteColors.value = rgbPalette.map((rgb) => {
+    const colors = rgbPalette.map((rgb) => {
       const r = rgb[0] ?? 0
       const g = rgb[1] ?? 0
       const b = rgb[2] ?? 0
       return { hex: rgbToHex(r, g, b) }
     })
-    // Store original for reset
-    if (originalPalette.value.length === 0) {
-      originalPalette.value = [...paletteColors.value]
-    }
+    paletteColors.value = colors
+    originalPalette.value = [...colors]
+  }
+
+  function updateOriginalPalette(rgbPalette: number[][]) {
+    originalPalette.value = rgbPalette.map((rgb) => {
+      const r = rgb[0] ?? 0
+      const g = rgb[1] ?? 0
+      const b = rgb[2] ?? 0
+      return { hex: rgbToHex(r, g, b) }
+    })
   }
 
   function setColorAt(index: number, hex: string) {
@@ -307,6 +314,7 @@ export function usePalette() {
     hexToRgb,
     rgbToHex,
     setPaletteFromRgb,
+    updateOriginalPalette,
     setColorAt,
     addColor,
     removeColor,
