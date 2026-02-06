@@ -1,0 +1,285 @@
+<script setup lang="ts">
+import { PRESET_PALETTES, type PaletteColor } from '~/composables/usePalette'
+
+const props = defineProps<{
+  palette: PaletteColor[]
+  customPalettes: { name: string; colors: PaletteColor[] }[]
+  selectedPreset: string
+  isCustomPaletteSelected: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:palette', colors: PaletteColor[]): void
+  (e: 'update:selectedPreset', value: string): void
+  (e: 'selectPreset', value: string): void
+  (e: 'setColor', index: number, hex: string): void
+  (e: 'addColor'): void
+  (e: 'removeColor', index: number): void
+  (e: 'saveCustom', name: string): void
+  (e: 'deleteCustom', index: number): void
+  (e: 'import', json: string): void
+}>()
+
+// UI state
+const editingIndex = ref<number | null>(null)
+const activeTab = ref<'edit' | 'save' | 'export' | 'import' | null>(null)
+const newPaletteName = ref('')
+const importJson = ref('')
+
+// Build dropdown options
+const presetOptions = computed(() => {
+  const options = [
+    { label: 'Original (from image)', value: 'original' },
+    { label: 'Custom', value: 'custom', disabled: true }
+  ]
+
+  // Add custom palettes
+  props.customPalettes.forEach((p, i) => {
+    options.push({ label: p.name, value: `custom-${i}` })
+  })
+
+  // Add preset palettes
+  PRESET_PALETTES.forEach(p => {
+    options.push({ label: p.name, value: p.value })
+  })
+
+  return options
+})
+
+const exportJson = computed(() => JSON.stringify(props.palette, null, 2))
+
+const editingColor = computed(() => {
+  if (editingIndex.value === null) return null
+  return props.palette[editingIndex.value] ?? null
+})
+
+function handlePresetChange(value: string) {
+  emit('selectPreset', value)
+}
+
+function handleColorClick(index: number) {
+  editingIndex.value = editingIndex.value === index ? null : index
+}
+
+function handleColorChange(event: Event, index: number) {
+  const input = event.target as HTMLInputElement
+  emit('setColor', index, input.value)
+}
+
+function handleAddColor() {
+  emit('addColor')
+}
+
+function handleRemoveColor(index: number) {
+  emit('removeColor', index)
+  if (editingIndex.value === index) {
+    editingIndex.value = null
+  }
+}
+
+function handleSave() {
+  if (newPaletteName.value.trim()) {
+    emit('saveCustom', newPaletteName.value)
+    newPaletteName.value = ''
+    activeTab.value = null
+  }
+}
+
+function handleDeleteCurrent() {
+  if (props.isCustomPaletteSelected) {
+    const index = parseInt(props.selectedPreset.replace('custom-', ''))
+    emit('deleteCustom', index)
+    activeTab.value = null
+  }
+}
+
+function handleImport() {
+  if (importJson.value.trim()) {
+    emit('import', importJson.value)
+    importJson.value = ''
+    activeTab.value = null
+  }
+}
+
+function downloadExport() {
+  const blob = new Blob([exportJson.value], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'ditherit_palette.json'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function toggleTab(tab: 'save' | 'export' | 'import') {
+  activeTab.value = activeTab.value === tab ? null : tab
+  editingIndex.value = null
+}
+</script>
+
+<template>
+  <div class="space-y-3">
+    <!-- Color Swatches -->
+    <div v-if="palette.length" class="flex flex-wrap gap-1">
+      <div v-for="(color, i) in palette" :key="i" class="relative">
+        <button
+          type="button"
+          class="size-7 rounded-full border-2 cursor-pointer transition-all"
+          :class="[
+            editingIndex === i
+              ? 'border-red-500 ring-2 ring-red-500/30 scale-110'
+              : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+          ]"
+          :style="{ backgroundColor: color.hex }"
+          :aria-label="`Edit color ${color.hex}`"
+          @click="handleColorClick(i)"
+        />
+        <!-- Remove button on hover/edit -->
+        <button
+          v-if="palette.length > 2"
+          type="button"
+          class="absolute -right-1 -top-1 size-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+          :class="{ 'opacity-100': editingIndex === i }"
+          @click.stop="handleRemoveColor(i)"
+        >
+          <UIcon name="i-lucide-x" class="size-3" />
+        </button>
+      </div>
+      <!-- Add color button -->
+      <button
+        type="button"
+        class="size-7 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors"
+        @click="handleAddColor"
+      >
+        <UIcon name="i-lucide-plus" class="size-4" />
+      </button>
+    </div>
+    <p v-else class="text-sm text-gray-500">
+      Upload an image to see palette
+    </p>
+
+    <!-- Color Editor (when editing) -->
+    <div v-if="editingIndex !== null && editingColor" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+      <div class="flex items-center gap-2">
+        <input
+          type="color"
+          :value="editingColor.hex"
+          class="w-10 h-10 rounded cursor-pointer border-0"
+          @input="handleColorChange($event, editingIndex!)"
+        />
+        <div class="flex-1">
+          <input
+            type="text"
+            :value="editingColor.hex"
+            class="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 font-mono"
+            @input="handleColorChange($event, editingIndex!)"
+          />
+        </div>
+        <UButton
+          icon="i-lucide-check"
+          color="primary"
+          size="xs"
+          @click="editingIndex = null"
+        />
+      </div>
+    </div>
+
+    <!-- Preset Selector -->
+    <USelect
+      :model-value="selectedPreset"
+      :items="presetOptions"
+      size="sm"
+      class="w-full"
+      @update:model-value="handlePresetChange"
+    />
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-1">
+      <UButton
+        label="Save"
+        size="xs"
+        :variant="activeTab === 'save' ? 'solid' : 'ghost'"
+        color="neutral"
+        @click="toggleTab('save')"
+      />
+      <UButton
+        label="Export"
+        size="xs"
+        :variant="activeTab === 'export' ? 'solid' : 'ghost'"
+        color="neutral"
+        @click="toggleTab('export')"
+      />
+      <UButton
+        label="Import"
+        size="xs"
+        :variant="activeTab === 'import' ? 'solid' : 'ghost'"
+        color="neutral"
+        @click="toggleTab('import')"
+      />
+    </div>
+
+    <!-- Tab Content -->
+    <div v-if="activeTab" class="p-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+      <!-- Save Tab -->
+      <div v-if="activeTab === 'save'" class="space-y-2">
+        <UInput
+          v-model="newPaletteName"
+          placeholder="Enter palette name"
+          size="sm"
+          @keyup.enter="handleSave"
+        />
+        <div class="flex gap-2">
+          <UButton
+            label="Save"
+            size="xs"
+            color="primary"
+            :disabled="!newPaletteName.trim()"
+            @click="handleSave"
+          />
+          <UButton
+            v-if="isCustomPaletteSelected"
+            label="Delete Current"
+            size="xs"
+            color="error"
+            variant="outline"
+            @click="handleDeleteCurrent"
+          />
+        </div>
+      </div>
+
+      <!-- Export Tab -->
+      <div v-if="activeTab === 'export'" class="space-y-2">
+        <UTextarea
+          :model-value="exportJson"
+          readonly
+          :rows="4"
+          class="font-mono text-xs"
+        />
+        <UButton
+          label="Download"
+          icon="i-lucide-download"
+          size="xs"
+          color="primary"
+          @click="downloadExport"
+        />
+      </div>
+
+      <!-- Import Tab -->
+      <div v-if="activeTab === 'import'" class="space-y-2">
+        <UTextarea
+          v-model="importJson"
+          placeholder='Paste palette JSON, e.g. [{"hex":"#ffffff"},{"hex":"#000000"}]'
+          :rows="4"
+          class="font-mono text-xs"
+        />
+        <UButton
+          label="Import"
+          size="xs"
+          color="primary"
+          :disabled="!importJson.trim()"
+          @click="handleImport"
+        />
+      </div>
+    </div>
+  </div>
+</template>
