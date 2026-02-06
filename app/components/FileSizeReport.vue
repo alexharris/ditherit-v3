@@ -1,44 +1,34 @@
 <script setup lang="ts">
 const props = defineProps<{
   originalSize: number // in bytes
-  ditheredDataUrl: string | null
+  ditheredFileSize: number | null // in bytes, from blob.size
   fileName?: string
 }>()
 
-// Calculate dithered file size from data URL
-const ditheredSize = computed(() => {
-  if (!props.ditheredDataUrl) return 0
-  // Data URL format: data:image/png;base64,<base64data>
-  const base64 = props.ditheredDataUrl.split(',')[1]
-  if (!base64) return 0
-  // Base64 encodes 3 bytes into 4 characters, so decode length
-  return Math.round((base64.length * 3) / 4)
-})
-
 const originalKb = computed(() => (props.originalSize / 1024).toFixed(1))
-const ditheredKb = computed(() => (ditheredSize.value / 1024).toFixed(1))
+const ditheredKb = computed(() => ((props.ditheredFileSize || 0) / 1024).toFixed(1))
 
 const percentage = computed(() => {
-  if (!props.originalSize || !ditheredSize.value) return 0
-  return ((ditheredSize.value / props.originalSize) * 100).toFixed(1)
+  if (!props.originalSize || !props.ditheredFileSize) return 0
+  return ((props.ditheredFileSize / props.originalSize) * 100).toFixed(1)
 })
 
 const strokeDashArray = computed(() => {
-  if (!props.originalSize || !ditheredSize.value) return '0 100'
-  const pct = (ditheredSize.value / props.originalSize) * 100
+  if (!props.originalSize || !props.ditheredFileSize) return '0 100'
+  const pct = (props.ditheredFileSize / props.originalSize) * 100
   return `${pct} ${100 - pct}`
 })
 
-const isSmaller = computed(() => ditheredSize.value < props.originalSize)
+const isSmaller = computed(() => (props.ditheredFileSize || 0) < props.originalSize)
 
 const savedKb = computed(() => {
-  const saved = (props.originalSize - ditheredSize.value) / 1024
+  const saved = (props.originalSize - (props.ditheredFileSize || 0)) / 1024
   return saved > 0 ? saved.toFixed(1) : '0'
 })
 </script>
 
 <template>
-  <div v-if="ditheredDataUrl" class="flex flex-col items-center">
+  <div v-if="ditheredFileSize" class="flex flex-col items-center">
     <!-- File name -->
     <p v-if="fileName" class="mb-2 w-full truncate text-center text-sm text-gray-500 dark:text-gray-400">{{ fileName }}</p>
 

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { DIFFUSION_ALGORITHMS } from '~/composables/useDithering'
+import { DIFFUSION_ALGORITHMS, loadImage } from '~/composables/useDithering'
 import type { GalleryImage } from '~/composables/useImageGallery'
 import defaultImageUrl from '~/assets/examples/quantfrog.png'
 
-const colorMode = useColorMode()
 const {
   isProcessing,
   ditherMode,
@@ -12,7 +11,8 @@ const {
   pixeliness,
   palette,
   analyzePalette,
-  dither
+  dither,
+  invalidateQuantCache
 } = useDithering()
 
 const {
@@ -53,61 +53,26 @@ const toast = useToast()
 
 const fileInputRef = ref<HTMLInputElement>()
 const canvasRef = ref<HTMLCanvasElement>()
-const processingImageRef = ref<HTMLImageElement>()
 
 const isDragging = ref(false)
 const isIntro = ref(true)
 const showCompare = ref(false)
 
-// Image sizing state
+// Image sizing state (managed by ImageSizeControl, synced via events)
 const originalWidth = ref(0)
 const originalHeight = ref(0)
-const useCustomSize = ref(false)
-const customWidth = ref(0)
-const customWidthInput = ref(0)
-let widthDebounceTimeout: ReturnType<typeof setTimeout> | null = null
+const sizeWidth = ref<number | undefined>(undefined)
+const sizeValid = ref(true)
 
-watch(customWidthInput, (val) => {
-  if (widthDebounceTimeout) clearTimeout(widthDebounceTimeout)
-  widthDebounceTimeout = setTimeout(() => {
-    customWidth.value = val
-  }, 400)
-})
-
-const MAX_WIDTH = 2048
-
-const calculatedHeight = computed(() => {
-  if (!originalWidth.value || !originalHeight.value) return 0
-  const width = useCustomSize.value ? customWidth.value : originalWidth.value
-  return Math.round((originalHeight.value / originalWidth.value) * width)
-})
-
-const outputWidth = computed(() => {
-  return useCustomSize.value ? customWidth.value : originalWidth.value
-})
-
-const isWidthValid = computed(() => {
-  if (!useCustomSize.value) return true
-  return customWidthInput.value > 0 && customWidthInput.value <= MAX_WIDTH
-})
+function handleSizeChange(payload: { width: number | undefined; valid: boolean }) {
+  sizeWidth.value = payload.width
+  sizeValid.value = payload.valid
+}
 
 const ditherModes = [
   { label: 'Error Diffusion', value: 'diffusion' },
   { label: 'Bayer (Ordered)', value: 'bayer' }
 ]
-
-function enableCustomSize() {
-  if (useCustomSize.value) return
-  useCustomSize.value = true
-  customWidth.value = originalWidth.value
-  customWidthInput.value = originalWidth.value
-}
-
-function resetToOriginalSize() {
-  useCustomSize.value = false
-  customWidth.value = originalWidth.value
-  customWidthInput.value = originalWidth.value
-}
 
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
@@ -120,39 +85,50 @@ function handleDragLeave(e: DragEvent) {
   isDragging.value = false
 }
 
-function warnRejectedFiles(rejected: string[]) {
-  if (rejected.length === 0) return
-  const names = rejected.join(', ')
-  toast.add({
-    title: 'File too large',
-    description: `${names} exceeded the 2.5 MB limit and was not added.`,
-    color: 'error'
-  })
+function warnRejectedFiles(rejected: { tooLarge: string[]; tooWide: string[] }) {
+  if (rejected.tooLarge.length > 0) {
+    toast.add({
+      title: 'File too large',
+      description: `${rejected.tooLarge.join(', ')} exceeded the 2.5 MB limit and was not added.`,
+      color: 'error'
+    })
+  }
+  if (rejected.tooWide.length > 0) {
+    toast.add({
+      title: 'Image too large',
+      description: `${rejected.tooWide.join(', ')} exceeds 2048px and was not added.`,
+      color: 'error'
+    })
+  }
 }
 
-function handleDrop(e: DragEvent) {
+async function handleDrop(e: DragEvent) {
   e.preventDefault()
   isDragging.value = false
   const files = e.dataTransfer?.files
   if (files && files.length > 0) {
-    if (isIntro.value) {
+    const wasIntro = isIntro.value
+    const oldIds = wasIntro ? images.value.map(img => img.id) : []
+    const result = await addImages(files)
+    if (wasIntro && result.added > 0) {
       isIntro.value = false
-      clearAll()
+      oldIds.forEach(id => removeImage(id))
     }
-    const rejected = addImages(files)
-    warnRejectedFiles(rejected)
+    warnRejectedFiles(result)
   }
 }
 
-function handleFileSelect(e: Event) {
+async function handleFileSelect(e: Event) {
   const target = e.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    if (isIntro.value) {
+    const wasIntro = isIntro.value
+    const oldIds = wasIntro ? images.value.map(img => img.id) : []
+    const result = await addImages(target.files)
+    if (wasIntro && result.added > 0) {
       isIntro.value = false
-      clearAll()
+      oldIds.forEach(id => removeImage(id))
     }
-    const rejected = addImages(target.files)
-    warnRejectedFiles(rejected)
+    warnRejectedFiles(result)
     // Reset input so same file can be selected again
     target.value = ''
   }
@@ -162,34 +138,19 @@ function triggerFileInput() {
   fileInputRef.value?.click()
 }
 
-// Process a single image using a temporary img element
-async function processImageForDither(image: GalleryImage, width?: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = async () => {
-      try {
-        const canvas = canvasRef.value
-        if (!canvas) {
-          reject(new Error('Canvas not available'))
-          return
-        }
-        const result = await dither(img, canvas, width)
-        resolve(result.dataUrl)
-      } catch (err) {
-        reject(err)
-      }
-    }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = image.originalSrc
-  })
+// Process a single image — uses cached image loading
+async function processImageForDither(image: GalleryImage, width?: number): Promise<{ url: string; blob: Blob }> {
+  const img = await loadImage(image.originalSrc)
+  const canvas = canvasRef.value
+  if (!canvas) throw new Error('Canvas not available')
+  const result = await dither(img, canvas, width)
+  return { url: result.url, blob: result.blob }
 }
 
 function generateResizedOriginal(image: GalleryImage, width: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
+    // Use cached image loading for resized original too
+    loadImage(image.originalSrc).then((img) => {
       const canvas = document.createElement('canvas')
       const height = (img.naturalHeight / img.naturalWidth) * width
       canvas.width = width
@@ -197,22 +158,20 @@ function generateResizedOriginal(image: GalleryImage, width: number): Promise<st
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0, width, height)
       resolve(canvas.toDataURL('image/png'))
-    }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = image.originalSrc
+    }).catch(reject)
   })
 }
 
 async function handleDither() {
-  if (!selectedImage.value || !canvasRef.value || !isWidthValid.value) return
+  if (!selectedImage.value || !canvasRef.value || !sizeValid.value) return
 
   setProcessing(selectedImage.value.id, true)
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 
   try {
-    const width = useCustomSize.value ? customWidth.value : undefined
-    const dataUrl = await processImageForDither(selectedImage.value, width)
-    setDitheredResult(selectedImage.value.id, dataUrl)
+    const width = sizeWidth.value
+    const result = await processImageForDither(selectedImage.value, width)
+    setDitheredResult(selectedImage.value.id, result.url, result.blob)
 
     if (width) {
       const resized = await generateResizedOriginal(selectedImage.value, width)
@@ -231,29 +190,22 @@ function debouncedDither() {
   ditherTimeout = setTimeout(() => handleDither(), 300)
 }
 
-async function handleSelectImage(id: string) {
-  selectImage(id)
-}
-
 function downloadSingleImage() {
-  if (!selectedImage.value?.ditheredDataUrl) return
+  if (!selectedImage.value?.ditheredBlob) return
+  const url = URL.createObjectURL(selectedImage.value.ditheredBlob)
   const link = document.createElement('a')
   const baseName = selectedImage.value.fileName.replace(/\.[^.]+$/, '')
   link.download = `${baseName}-dithered.png`
-  link.href = selectedImage.value.ditheredDataUrl
+  link.href = url
   link.click()
+  URL.revokeObjectURL(url)
 }
 
 async function handleDownload() {
   if (images.value.length > 1) {
     await downloadAll(processImageForDither)
   } else {
-    if (!selectedImage.value?.ditheredDataUrl) return
-    const link = document.createElement('a')
-    const baseName = selectedImage.value.fileName.replace(/\.[^.]+$/, '')
-    link.download = `${baseName}-dithered.png`
-    link.href = selectedImage.value.ditheredDataUrl
-    link.click()
+    downloadSingleImage()
   }
 }
 
@@ -265,24 +217,19 @@ onMounted(() => {
 })
 
 // Update palette and dimensions when selected image changes
-watch(selectedImage, (newImage) => {
+watch(selectedImage, async (newImage) => {
   if (newImage) {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      // Capture original dimensions
-      originalWidth.value = img.naturalWidth
-      originalHeight.value = img.naturalHeight
-      customWidth.value = img.naturalWidth
-      customWidthInput.value = img.naturalWidth
-      useCustomSize.value = false
+    const img = await loadImage(newImage.originalSrc)
 
-      // Analyze palette
-      const colors = analyzePalette(img)
-      palette.value = colors
-      setPaletteFromRgb(colors)
-    }
-    img.src = newImage.originalSrc
+    // Capture original dimensions (passed as props to ImageSizeControl)
+    originalWidth.value = img.naturalWidth
+    originalHeight.value = img.naturalHeight
+
+    // Analyze palette — also invalidates quant cache since image changed
+    invalidateQuantCache()
+    const colors = analyzePalette(img)
+    palette.value = colors
+    setPaletteFromRgb(colors)
   }
 }, { immediate: true })
 
@@ -294,8 +241,8 @@ watch(paletteAsRgb, (newPalette) => {
 }, { deep: true })
 
 // Auto-dither selected image when any setting changes
-watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb, outputWidth], () => {
-  if (selectedImage.value && isWidthValid.value) {
+watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb, sizeWidth], () => {
+  if (selectedImage.value && sizeValid.value) {
     debouncedDither()
   }
 }, { deep: true })
@@ -304,9 +251,14 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb, outputWidth]
 watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
   // Mark other images as needing re-processing
   // Note: width changes only affect the selected image, so we don't include it here
-  images.value.forEach(img => {
+  images.value.forEach((img) => {
     if (img.id !== selectedImage.value?.id) {
+      if (img.ditheredDataUrl) {
+        URL.revokeObjectURL(img.ditheredDataUrl)
+      }
       img.ditheredDataUrl = null
+      img.ditheredBlob = null
+      img.ditheredFileSize = null
     }
   })
 }, { deep: true })
@@ -327,19 +279,8 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
     <!-- Hidden canvas for dithering -->
     <canvas ref="canvasRef" class="hidden" />
 
-    <!-- Top Bar (full width) -->
-    <header class="flex h-12 shrink-0 items-center border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-950">
-      <span class="flex-1 text-center text-xl font-bold text-red-600 dark:text-red-400">
-        Dither it!
-      </span>
-      <UButton
-        :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
-      />
-    </header>
+    <!-- Top Bar -->
+    <AppHeader />
 
     <!-- Body below top bar -->
     <div class="flex flex-1 overflow-hidden">
@@ -383,51 +324,12 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
           <USeparator />
 
           <!-- Image Size -->
-          <UFormField v-if="originalWidth > 0" label="Image Size">
-            <!-- Validation warning -->
-            <div v-if="useCustomSize && !isWidthValid" class="mb-2 rounded bg-red-100 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
-              Width must be between 1 and {{ MAX_WIDTH }}px
-            </div>
-
-            <div class="flex gap-2">
-              <!-- Width -->
-              <div class="flex-1">
-                <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Width (px)</label>
-                <UInput
-                  v-model="customWidthInput"
-                  type="number"
-                  :min="1"
-                  :max="MAX_WIDTH"
-                  size="sm"
-                  :color="useCustomSize && !isWidthValid ? 'error' : 'neutral'"
-                  @focus="enableCustomSize"
-                />
-              </div>
-
-              <!-- Height (read-only) -->
-              <div class="flex-1">
-                <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Height (px)</label>
-                <UInput
-                  :model-value="calculatedHeight"
-                  type="number"
-                  size="sm"
-                  disabled
-                />
-              </div>
-            </div>
-
-            <!-- Reset button -->
-            <UButton
-              v-if="useCustomSize"
-              icon="i-lucide-rotate-ccw"
-              label="Reset to original"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              class="mt-2"
-              @click="resetToOriginalSize"
-            />
-          </UFormField>
+          <ImageSizeControl
+            v-if="originalWidth > 0"
+            :original-width="originalWidth"
+            :original-height="originalHeight"
+            @change="handleSizeChange"
+          />
 
           <USeparator v-if="originalWidth > 0" />
 
@@ -577,7 +479,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
           <div class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90">
             <FileSizeReport
               :original-size="selectedImage.originalFileSize"
-              :dithered-data-url="selectedImage.ditheredDataUrl"
+              :dithered-file-size="selectedImage.ditheredFileSize"
               :file-name="selectedImage.fileName"
               class="w-full"
             />
@@ -590,53 +492,14 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
         class="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950"
       >
         <!-- Image Thumbnails (left) -->
-        <div v-if="hasImages" class="flex min-w-0 flex-1 gap-2 overflow-x-auto">
-          <div
-            v-for="image in images"
-            :key="image.id"
-            class="group relative shrink-0 cursor-pointer"
-            @click="handleSelectImage(image.id)"
-          >
-            <img
-              :src="image.originalSrc"
-              :alt="image.fileName"
-              class="h-14 w-auto rounded border-2 object-cover transition-all"
-              :class="[
-                selectedImage?.id === image.id
-                  ? 'border-red-500 ring-2 ring-red-500/30'
-                  : 'border-gray-200 hover:border-gray-400 dark:border-gray-700 dark:hover:border-gray-500'
-              ]"
-            />
-            <!-- Processing indicator -->
-            <div
-              v-if="image.isProcessing"
-              class="absolute inset-0 flex items-center justify-center rounded bg-black/50"
-            >
-              <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-red-500" />
-            </div>
-            <!-- Processed indicator -->
-            <div
-              v-else-if="image.ditheredDataUrl"
-              class="absolute bottom-0.5 right-0.5 rounded-full bg-green-500 p-0.5"
-            >
-              <UIcon name="i-lucide-check" class="size-2.5 text-white" />
-            </div>
-            <!-- Remove button -->
-            <button
-              class="absolute -right-1 -top-1 hidden rounded-full bg-red-500 p-0.5 text-white shadow group-hover:block"
-              @click.stop="removeImage(image.id)"
-            >
-              <UIcon name="i-lucide-x" class="size-3" />
-            </button>
-          </div>
-          <!-- Add more button -->
-          <button
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded border-2 border-dashed border-gray-300 text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500 dark:border-gray-600 dark:hover:border-gray-500"
-            @click="triggerFileInput"
-          >
-            <UIcon name="i-lucide-plus" class="size-5" />
-          </button>
-        </div>
+        <ImageThumbnailStrip
+          v-if="hasImages"
+          :images="images"
+          :selected-id="selectedImage?.id"
+          @select="selectImage"
+          @remove="removeImage"
+          @add="triggerFileInput"
+        />
         <div v-else class="flex-1" />
 
         <!-- Action buttons (right) -->

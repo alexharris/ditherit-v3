@@ -5,7 +5,9 @@ export interface GalleryImage {
   fileName: string
   originalSrc: string
   originalFileSize: number // in bytes
-  ditheredDataUrl: string | null
+  ditheredDataUrl: string | null // blob URL for display
+  ditheredBlob: Blob | null // raw PNG blob for download/zip
+  ditheredFileSize: number | null // blob.size in bytes
   resizedOriginalSrc: string | null
   isProcessing: boolean
 }
@@ -30,45 +32,75 @@ export function useImageGallery() {
   }
 
   const MAX_FILE_SIZE = 2.5 * 1024 * 1024 // 2.5 MB
+  const MAX_DIMENSION = 2048
 
-  function addImages(files: FileList | File[]): string[] {
-    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
-    const rejected: string[] = []
-
-    fileArray.forEach((file) => {
-      if (file.size > MAX_FILE_SIZE) {
-        rejected.push(file.name)
-        return
-      }
+  function readFileAsDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = (e) => {
-        const newImage: GalleryImage = {
-          id: generateId(),
-          fileName: file.name,
-          originalSrc: e.target?.result as string,
-          originalFileSize: file.size,
-          ditheredDataUrl: null,
-          resizedOriginalSrc: null,
-          isProcessing: false
-        }
-        images.value.push(newImage)
-
-        // Auto-select if this is the first image
-        if (images.value.length === 1) {
-          selectedId.value = newImage.id
-        }
-      }
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error('Failed to read file'))
       reader.readAsDataURL(file)
     })
+  }
 
-    return rejected
+  function getImageDimensions(src: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = src
+    })
+  }
+
+  async function addImages(files: FileList | File[]): Promise<{ tooLarge: string[]; tooWide: string[]; added: number }> {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
+    const tooLarge: string[] = []
+    const tooWide: string[] = []
+    let added = 0
+
+    for (const file of fileArray) {
+      if (file.size > MAX_FILE_SIZE) {
+        tooLarge.push(file.name)
+        continue
+      }
+
+      const dataUrl = await readFileAsDataURL(file)
+      const { width, height } = await getImageDimensions(dataUrl)
+
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        tooWide.push(file.name)
+        continue
+      }
+
+      const newImage: GalleryImage = {
+        id: generateId(),
+        fileName: file.name,
+        originalSrc: dataUrl,
+        originalFileSize: file.size,
+        ditheredDataUrl: null,
+        ditheredBlob: null,
+        ditheredFileSize: null,
+        resizedOriginalSrc: null,
+        isProcessing: false
+      }
+      images.value.push(newImage)
+
+      added++
+
+      // Auto-select if this is the first image
+      if (images.value.length === 1) {
+        selectedId.value = newImage.id
+      }
+    }
+
+    return { tooLarge, tooWide, added }
   }
 
   async function addImageFromUrl(url: string, fileName: string) {
     const response = await fetch(url)
     const blob = await response.blob()
     const file = new File([blob], fileName, { type: blob.type })
-    addImages([file])
+    await addImages([file])
   }
 
   function selectImage(id: string) {
@@ -78,6 +110,12 @@ export function useImageGallery() {
   function removeImage(id: string) {
     const index = images.value.findIndex(img => img.id === id)
     if (index !== -1) {
+      // Revoke blob URL before removing
+      const img = images.value[index]
+      if (img?.ditheredDataUrl) {
+        URL.revokeObjectURL(img.ditheredDataUrl)
+      }
+
       images.value.splice(index, 1)
 
       // Update selection if we removed the selected image
@@ -85,7 +123,7 @@ export function useImageGallery() {
         if (images.value.length > 0) {
           // Select the previous image, or first if we removed the first
           const newIndex = Math.max(0, index - 1)
-          selectedId.value = images.value[newIndex].id
+          selectedId.value = images.value[newIndex]?.id ?? null
         } else {
           selectedId.value = null
         }
@@ -94,14 +132,26 @@ export function useImageGallery() {
   }
 
   function clearAll() {
+    // Revoke all blob URLs
+    images.value.forEach((img) => {
+      if (img.ditheredDataUrl) {
+        URL.revokeObjectURL(img.ditheredDataUrl)
+      }
+    })
     images.value = []
     selectedId.value = null
   }
 
-  function setDitheredResult(id: string, dataUrl: string) {
+  function setDitheredResult(id: string, url: string, blob: Blob) {
     const image = images.value.find(img => img.id === id)
     if (image) {
-      image.ditheredDataUrl = dataUrl
+      // Revoke old blob URL to prevent memory leak
+      if (image.ditheredDataUrl) {
+        URL.revokeObjectURL(image.ditheredDataUrl)
+      }
+      image.ditheredDataUrl = url
+      image.ditheredBlob = blob
+      image.ditheredFileSize = blob.size
     }
   }
 
@@ -120,14 +170,19 @@ export function useImageGallery() {
   }
 
   function clearDitheredResults() {
-    images.value.forEach(img => {
+    images.value.forEach((img) => {
+      if (img.ditheredDataUrl) {
+        URL.revokeObjectURL(img.ditheredDataUrl)
+      }
       img.ditheredDataUrl = null
+      img.ditheredBlob = null
+      img.ditheredFileSize = null
       img.resizedOriginalSrc = null
     })
   }
 
   async function downloadAll(
-    processImage: (image: GalleryImage) => Promise<string>
+    processImage: (image: GalleryImage) => Promise<{ url: string; blob: Blob }>
   ) {
     if (images.value.length === 0) return
 
@@ -138,30 +193,36 @@ export function useImageGallery() {
 
       // Process any unprocessed images and add all to ZIP
       for (const image of images.value) {
-        let dataUrl = image.ditheredDataUrl
+        let blob = image.ditheredBlob
 
         // Process if not already processed
-        if (!dataUrl) {
+        if (!blob) {
           image.isProcessing = true
           try {
-            dataUrl = await processImage(image)
-            image.ditheredDataUrl = dataUrl
+            const result = await processImage(image)
+            // Revoke old URL if any
+            if (image.ditheredDataUrl) {
+              URL.revokeObjectURL(image.ditheredDataUrl)
+            }
+            image.ditheredDataUrl = result.url
+            image.ditheredBlob = result.blob
+            image.ditheredFileSize = result.blob.size
+            blob = result.blob
           } finally {
             image.isProcessing = false
           }
         }
 
-        if (dataUrl) {
-          // Convert data URL to blob
-          const base64 = dataUrl.split(',')[1]
+        if (blob) {
           const baseName = image.fileName.replace(/\.[^.]+$/, '')
-          zip.file(`${baseName}-dithered.png`, base64, { base64: true })
+          // Use blob directly — no base64 conversion needed
+          zip.file(`${baseName}-dithered.png`, blob)
         }
       }
 
       // Generate and download ZIP
-      const blob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(blob)
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
       const link = document.createElement('a')
       link.href = url
       link.download = 'dithered-images.zip'
