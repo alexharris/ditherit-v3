@@ -40,6 +40,7 @@ const {
   isCustomPaletteSelected,
   paletteAsRgb,
   setPaletteFromRgb,
+  updateOriginalPalette,
   setColorAt,
   addColor,
   removeColor,
@@ -225,11 +226,21 @@ watch(selectedImage, async (newImage) => {
     originalWidth.value = img.naturalWidth
     originalHeight.value = img.naturalHeight
 
-    // Analyze palette — also invalidates quant cache since image changed
     invalidateQuantCache()
     const colors = analyzePalette(img)
-    palette.value = colors
-    setPaletteFromRgb(colors)
+
+    // Always store the analyzed palette so "Original" reflects this image
+    updateOriginalPalette(colors)
+
+    if (selectedPreset.value === 'original') {
+      // Use the image's own analyzed palette
+      palette.value = colors
+      setPaletteFromRgb(colors)
+      // Auto-dither triggers via paletteAsRgb watcher
+    } else {
+      // Keep current preset/custom palette, just re-dither with new image
+      debouncedDither()
+    }
   }
 }, { immediate: true })
 
@@ -386,7 +397,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
 
           <!-- Preview Area -->
           <div
-            class="relative flex flex-1 flex-col items-center justify-center overflow-auto p-8"
+            class="relative flex flex-1 flex-col items-center justify-center overflow-auto p-8 [scrollbar-gutter:stable]"
             :class="isIntro ? 'border-2 border-dashed border-gray-300 m-4 rounded-lg dark:border-gray-600' : ''"
           >
             <!-- Intro upload hint -->
@@ -446,8 +457,8 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
 
               <!-- Image toolbar -->
               <div
-                v-if="selectedImage.ditheredDataUrl"
                 class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                :class="{ 'opacity-40 pointer-events-none': !selectedImage.ditheredDataUrl }"
               >
                 <UButton
                   icon="i-lucide-columns-2"
@@ -455,6 +466,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
                   :color="showCompare ? 'primary' : 'neutral'"
                   :variant="showCompare ? 'soft' : 'ghost'"
                   size="xs"
+                  :disabled="!selectedImage.ditheredDataUrl"
                   @click="showCompare = !showCompare"
                 />
                 <UButton
@@ -463,6 +475,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  :disabled="!selectedImage.ditheredDataUrl"
                   @click="downloadSingleImage"
                 />
               </div>
@@ -471,12 +484,12 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
           </div>
         </main>
 
-        <!-- Right Sidebar -->
-        <aside
-          v-if="selectedImage?.ditheredDataUrl"
-          class="w-48 shrink-0 overflow-y-auto "
-        >
-          <div class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90">
+        <!-- Right Sidebar (always reserves space to prevent layout shift) -->
+        <aside class="w-48 shrink-0 overflow-y-auto">
+          <div
+            v-if="selectedImage"
+            class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90"
+          >
             <FileSizeReport
               :original-size="selectedImage.originalFileSize"
               :dithered-file-size="selectedImage.ditheredFileSize"

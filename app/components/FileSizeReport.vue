@@ -28,7 +28,7 @@ const savedKb = computed(() => {
 </script>
 
 <template>
-  <div v-if="ditheredFileSize" class="flex flex-col items-center">
+  <div class="flex flex-col items-center">
     <!-- File name -->
     <p v-if="fileName" class="mb-2 w-full truncate text-center text-sm text-gray-500 dark:text-gray-400">{{ fileName }}</p>
 
@@ -47,6 +47,7 @@ const savedKb = computed(() => {
         />
         <!-- Percentage segment -->
         <circle
+          v-if="ditheredFileSize"
           cx="21"
           cy="21"
           r="15.91549430918954"
@@ -63,9 +64,10 @@ const savedKb = computed(() => {
           y="21"
           text-anchor="middle"
           dominant-baseline="middle"
-          class="fill-current text-gray-700 dark:text-gray-200"
+          class="fill-current"
+          :class="ditheredFileSize ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'"
         >
-          <tspan x="21" dy="-0.4em" font-size="4" font-weight="bold">{{ percentage }}%</tspan>
+          <tspan x="21" dy="-0.4em" font-size="4" font-weight="bold">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
           <tspan x="21" dy="1.2em" font-size="2.5" class="fill-current text-gray-500 dark:text-gray-400">of original</tspan>
         </text>
       </svg>
@@ -81,17 +83,21 @@ const savedKb = computed(() => {
         <span class="text-gray-500 dark:text-gray-400">Dithered</span>
         <span
           class="font-medium"
-          :class="isSmaller ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+          :class="ditheredFileSize
+            ? (isSmaller ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
+            : 'text-gray-300 dark:text-gray-600'"
         >
-          {{ ditheredKb }} KB
+          {{ ditheredFileSize ? `${ditheredKb} KB` : '— KB' }}
         </span>
       </div>
-      <div
-        v-if="isSmaller"
-        class="flex justify-between border-t border-gray-200 pt-2 dark:border-gray-700"
-      >
+      <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-gray-700">
         <span class="text-gray-500 dark:text-gray-400">Saved</span>
-        <span class="font-medium text-green-600 dark:text-green-400">{{ savedKb }} KB</span>
+        <span
+          class="font-medium"
+          :class="ditheredFileSize && isSmaller ? 'text-green-600 dark:text-green-400' : 'text-gray-300 dark:text-gray-600'"
+        >
+          {{ ditheredFileSize && isSmaller ? `${savedKb} KB` : '— KB' }}
+        </span>
       </div>
     </div>
   </div>

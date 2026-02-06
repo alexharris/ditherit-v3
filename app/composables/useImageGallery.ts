@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+import { nextTick } from 'vue'
 
 export interface GalleryImage {
   id: string
@@ -145,13 +146,15 @@ export function useImageGallery() {
   function setDitheredResult(id: string, url: string, blob: Blob) {
     const image = images.value.find(img => img.id === id)
     if (image) {
-      // Revoke old blob URL to prevent memory leak
-      if (image.ditheredDataUrl) {
-        URL.revokeObjectURL(image.ditheredDataUrl)
-      }
+      const oldUrl = image.ditheredDataUrl
+      // Set new values first so the <img> gets a valid src immediately
       image.ditheredDataUrl = url
       image.ditheredBlob = blob
       image.ditheredFileSize = blob.size
+      // Revoke old blob URL after Vue has flushed the DOM update
+      if (oldUrl) {
+        nextTick(() => URL.revokeObjectURL(oldUrl))
+      }
     }
   }
 
