@@ -1,4 +1,5 @@
 import RgbQuant from 'rgbquant'
+import type { BayerSize } from '~/utils/dithering'
 import { addPixelation, bayerDither } from '~/utils/dithering'
 
 export interface RgbQuantOptions {
@@ -69,6 +70,7 @@ export function useDithering() {
   const algorithm = ref('FloydSteinberg')
   const serpentine = ref(false)
   const pixeliness = ref(1)
+  const bayerSize = ref<BayerSize>(4)
   const palette = ref<number[][]>([])
 
   // RgbQuant instance cache — reused when only algorithm/serpentine changes
@@ -162,7 +164,8 @@ export function useDithering() {
               width: finalWidth,
               height: finalHeight,
               palette: paletteToUse,
-              blockSize: pixeliness.value
+              blockSize: pixeliness.value,
+              bayerSize: bayerSize.value
             }, [imageData.data.buffer])
           })
 
@@ -180,7 +183,7 @@ export function useDithering() {
           // Worker failed — fall back to main-thread Bayer dithering
           ctx.drawImage(sourceImage, 0, 0, finalWidth, finalHeight)
           const freshImageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
-          bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value)
+          bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value, bayerSize.value)
         }
       } else {
         // --- Error diffusion path: cache RgbQuant instance ---
@@ -238,6 +241,7 @@ export function useDithering() {
     algorithm,
     serpentine,
     pixeliness,
+    bayerSize,
     palette,
 
     // Computed

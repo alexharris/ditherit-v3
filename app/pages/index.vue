@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { DIFFUSION_ALGORITHMS, loadImage } from '~/composables/useDithering'
+import { BAYER_SIZES } from '~/utils/dithering'
 import type { GalleryImage } from '~/composables/useImageGallery'
 import defaultImageUrl from '~/assets/examples/quantfrog.png'
 
@@ -9,6 +10,7 @@ const {
   algorithm,
   serpentine,
   pixeliness,
+  bayerSize,
   palette,
   analyzePalette,
   dither,
@@ -252,14 +254,14 @@ watch(paletteAsRgb, (newPalette) => {
 }, { deep: true })
 
 // Auto-dither selected image when any setting changes
-watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb, sizeWidth], () => {
+watch([ditherMode, algorithm, serpentine, pixeliness, bayerSize, paletteAsRgb, sizeWidth], () => {
   if (selectedImage.value && sizeValid.value) {
     debouncedDither()
   }
 }, { deep: true })
 
 // Clear dithered results when settings change (for non-selected images)
-watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
+watch([ditherMode, algorithm, serpentine, pixeliness, bayerSize, paletteAsRgb], () => {
   // Mark other images as needing re-processing
   // Note: width changes only affect the selected image, so we don't include it here
   images.value.forEach((img) => {
@@ -321,6 +323,14 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
               v-if="ditherMode === 'diffusion'"
               v-model="algorithm"
               :items="DIFFUSION_ALGORITHMS"
+              class="w-full"
+            />
+
+            <!-- Matrix Size (for bayer mode) -->
+            <USelect
+              v-if="ditherMode === 'bayer'"
+              v-model="bayerSize"
+              :items="BAYER_SIZES"
               class="w-full"
             />
           </div>

@@ -1,3 +1,41 @@
+export type BayerSize = 2 | 4 | 8 | 16
+
+export const BAYER_SIZES = [
+  { label: '2x2', value: 2 },
+  { label: '4x4', value: 4 },
+  { label: '8x8', value: 8 },
+  { label: '16x16', value: 16 }
+] as const
+
+function generateBayerIndex(size: number): number[][] {
+  if (size === 2) return [[0, 2], [3, 1]]
+  const half = size / 2
+  const sub = generateBayerIndex(half)
+  const m: number[][] = Array.from({ length: size }, () => new Array(size))
+  for (let i = 0; i < half; i++) {
+    for (let j = 0; j < half; j++) {
+      const v = sub[i]![j]! * 4
+      m[2 * i]![2 * j] = v
+      m[2 * i]![2 * j + 1] = v + 2
+      m[2 * i + 1]![2 * j] = v + 3
+      m[2 * i + 1]![2 * j + 1] = v + 1
+    }
+  }
+  return m
+}
+
+function toBayerThresholds(m: number[][]): number[][] {
+  const n = m.length * m.length
+  return m.map(row => row.map(v => Math.floor((v + 0.5) / n * 256)))
+}
+
+export const BAYER_MATRICES: Record<BayerSize, number[][]> = {
+  2: toBayerThresholds(generateBayerIndex(2)),
+  4: toBayerThresholds(generateBayerIndex(4)),
+  8: toBayerThresholds(generateBayerIndex(8)),
+  16: toBayerThresholds(generateBayerIndex(16))
+}
+
 export function getClosestColor(colors: number[][], [r2, g2, b2]: number[]): number[] {
   let minDist = Infinity
   let closest = colors[0]
@@ -45,14 +83,11 @@ export function bayerDither(
   ctx: CanvasRenderingContext2D,
   imageData: ImageData,
   palette: number[][],
-  blockSize: number
+  blockSize: number,
+  bayerSize: BayerSize = 4
 ) {
-  const bayerThresholdMap = [
-    [15, 135, 45, 165],
-    [195, 75, 225, 105],
-    [60, 180, 30, 150],
-    [240, 120, 210, 90]
-  ]
+  const matrix = BAYER_MATRICES[bayerSize]
+  const size = bayerSize
 
   const imageDataLength = imageData.data.length
   const w = imageData.width
@@ -63,21 +98,17 @@ export function bayerDither(
     const x = (currentPixel / 4) % w
     const y = Math.floor(currentPixel / 4 / w)
 
-    const map = Math.floor(
-      (imageData.data[currentPixel] + bayerThresholdMap[x % 4][y % 4]) / 2
-    )
-    const map2 = Math.floor(
-      (imageData.data[currentPixel + 1] + bayerThresholdMap[x % 4][y % 4]) / 2
-    )
-    const map3 = Math.floor(
-      (imageData.data[currentPixel + 2] + bayerThresholdMap[x % 4][y % 4]) / 2
-    )
+    const threshold = matrix[x % size]![y % size]!
+
+    const map = Math.floor((imageData.data[currentPixel]! + threshold) / 2)
+    const map2 = Math.floor((imageData.data[currentPixel + 1]! + threshold) / 2)
+    const map3 = Math.floor((imageData.data[currentPixel + 2]! + threshold) / 2)
 
     const closestColor = getClosestColor(newPalette, [map, map2, map3])
 
-    imageData.data[currentPixel] = closestColor[1]
-    imageData.data[currentPixel + 1] = closestColor[2]
-    imageData.data[currentPixel + 2] = closestColor[3]
+    imageData.data[currentPixel] = closestColor[1]!
+    imageData.data[currentPixel + 1] = closestColor[2]!
+    imageData.data[currentPixel + 2] = closestColor[3]!
   }
 
   ctx.putImageData(imageData, 0, 0)
