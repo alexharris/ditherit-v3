@@ -33,7 +33,7 @@ export function useImageGallery() {
   }
 
   const MAX_FILE_SIZE = 2.5 * 1024 * 1024 // 2.5 MB
-  const MAX_DIMENSION = 2048
+  const MAX_DIMENSION = 4000
 
   function readFileAsDataURL(file: File): Promise<string> {
     return new Promise((resolve, reject) => {

@@ -25,8 +25,6 @@ defineProps<{
         class="compare-image"
       />
     </img-comparison-slider>
-    <span class="compare-label label-original">Original</span>
-    <span class="compare-label label-dithered">Dithered</span>
   </div>
 </template>
 
@@ -57,25 +55,5 @@ defineProps<{
   max-height: 60vh;
   height: auto;
   object-fit: contain;
-}
-
-.compare-label {
-  position: absolute;
-  bottom: 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 500;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.25rem;
-  color: rgb(255, 255, 255);
-  background: rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-.label-original {
-  left: 0.75rem;
-}
-
-.label-dithered {
-  right: 0.75rem;
 }
 </style>

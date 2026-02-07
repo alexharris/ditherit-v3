@@ -97,7 +97,7 @@ function warnRejectedFiles(rejected: { tooLarge: string[]; tooWide: string[] }) 
   if (rejected.tooWide.length > 0) {
     toast.add({
       title: 'Image too large',
-      description: `${rejected.tooWide.join(', ')} exceeds 2048px and was not added.`,
+      description: `${rejected.tooWide.join(', ')} exceeds 4000px and was not added.`,
       color: 'error'
     })
   }
@@ -301,66 +301,80 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
       class="flex w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
     >
       <!-- Sidebar Content -->
-      <div class="flex-1 overflow-y-auto p-4">
-        <div class="space-y-6">
+      <div class="flex-1 overflow-y-auto py-4">
           <!-- Dither Mode -->
-          <UFormField label="Dither Mode">
-            <URadioGroup v-model="ditherMode" :items="ditherModes" />
-          </UFormField>
+          <div class="space-y-6 px-4">
+            <UFormField label="Dither Mode">
+              <URadioGroup v-model="ditherMode" :items="ditherModes" />
+            </UFormField>
 
-          <!-- Algorithm (for diffusion mode) -->
-          <UFormField v-if="ditherMode === 'diffusion'" label="Algorithm">
-            <USelect
-              v-model="algorithm"
-              :items="DIFFUSION_ALGORITHMS"
-              class="w-full"
-            />
-          </UFormField>
+            <!-- Algorithm (for diffusion mode) -->
+            <UFormField v-if="ditherMode === 'diffusion'" label="Algorithm">
+              <USelect
+                v-model="algorithm"
+                :items="DIFFUSION_ALGORITHMS"
+                class="w-full"
+              />
+            </UFormField>
 
-          <!-- Pixeliness -->
-          <UFormField label="Pixeliness">
-            <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
-            <template #hint>
-              <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
-            </template>
-          </UFormField>
+            <!-- Pixeliness -->
+            <UFormField label="Pixeliness">
+              <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
+              <template #hint>
+                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
+              </template>
+            </UFormField>
+          </div>
 
-          <!-- Serpentine (for diffusion) -->
-          <UCheckbox
-            v-if="ditherMode === 'diffusion'"
-            v-model="serpentine"
-            label="Serpentine"
-          />
-
-          <USeparator />
-
-          <!-- Image Size -->
-          <ImageSizeControl
-            v-if="originalWidth > 0"
-            :original-width="originalWidth"
-            :original-height="originalHeight"
-            @change="handleSizeChange"
-          />
-
-          <USeparator v-if="originalWidth > 0" />
+          <USeparator class="my-6" :ui="{ border: 'border-t' }" />
 
           <!-- Palette Editor -->
-          <UFormField label="Palette">
-            <PaletteEditor
-              :palette="paletteColors"
-              :custom-palettes="customPalettes"
-              :selected-preset="selectedPreset"
-              :is-custom-palette-selected="isCustomPaletteSelected"
-              @select-preset="selectPreset"
-              @set-color="setColorAt"
-              @add-color="addColor"
-              @remove-color="removeColor"
-              @save-custom="saveCurrentPalette"
-              @delete-custom="deleteCustomPalette"
-              @import="importFromJson"
-            />
-          </UFormField>
-        </div>
+          <div class="px-4">
+            <UFormField label="Palette">
+              <PaletteEditor
+                :palette="paletteColors"
+                :custom-palettes="customPalettes"
+                :selected-preset="selectedPreset"
+                :is-custom-palette-selected="isCustomPaletteSelected"
+                @select-preset="selectPreset"
+                @set-color="setColorAt"
+                @add-color="addColor"
+                @remove-color="removeColor"
+                @save-custom="saveCurrentPalette"
+                @delete-custom="deleteCustomPalette"
+                @import="importFromJson"
+              />
+            </UFormField>
+          </div>
+
+          <USeparator class="my-6" :ui="{ border: 'border-t' }" />
+
+          <!-- Advanced -->
+          <div class="px-4">
+            <UCollapsible>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                block
+                class="justify-between px-0"
+              >
+                <span class="text-sm font-medium text-highlighted">Advanced</span>
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-4 text-dimmed transition-transform [[data-state=open]>&]:rotate-180"
+                />
+              </UButton>
+              <template #content>
+                <div class="space-y-3 pt-2">
+                  <UCheckbox
+                    v-if="ditherMode === 'diffusion'"
+                    v-model="serpentine"
+                    label="Serpentine"
+                  />
+                </div>
+              </template>
+            </UCollapsible>
+          </div>
       </div>
 
       <!-- Sidebar Footer -->
@@ -457,9 +471,15 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
 
               <!-- Image toolbar -->
               <div
-                class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                :class="{ 'opacity-40 pointer-events-none': !selectedImage.ditheredDataUrl }"
+                class="mt-3 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
               >
+                <ImageSizeControl
+                  v-if="originalWidth > 0"
+                  :original-width="originalWidth"
+                  :original-height="originalHeight"
+                  @change="handleSizeChange"
+                />
+                <div class="flex-1" />
                 <UButton
                   icon="i-lucide-columns-2"
                   label="Compare"
@@ -485,7 +505,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
         </main>
 
         <!-- Right Sidebar (always reserves space to prevent layout shift) -->
-        <aside class="w-48 shrink-0 overflow-y-auto">
+        <aside class="w-48 shrink-0 overflow-y-auto p-4">
           <div
             v-if="selectedImage"
             class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90"

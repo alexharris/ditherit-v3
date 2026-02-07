@@ -8,7 +8,7 @@ const emit = defineEmits<{
   change: [payload: { width: number | undefined, valid: boolean }]
 }>()
 
-const MAX_WIDTH = 2048
+const MAX_WIDTH = 4000
 const useCustomSize = ref(false)
 const customWidth = ref(0)
 const customWidthInput = ref(0)
@@ -62,49 +62,47 @@ watch([() => useCustomSize.value, customWidth, isWidthValid], () => {
 </script>
 
 <template>
-  <UFormField label="Image Size">
-    <!-- Validation warning -->
-    <div v-if="useCustomSize && !isWidthValid" class="mb-2 rounded bg-red-100 p-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
-      Width must be between 1 and {{ MAX_WIDTH }}px
-    </div>
-
-    <div class="flex gap-2">
-      <!-- Width -->
-      <div class="flex-1">
-        <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Width (px)</label>
-        <UInput
-          v-model="customWidthInput"
-          type="number"
-          :min="1"
-          :max="MAX_WIDTH"
-          size="sm"
-          :color="useCustomSize && !isWidthValid ? 'error' : 'neutral'"
-          @focus="enableCustomSize"
-        />
-      </div>
-
-      <!-- Height (read-only) -->
-      <div class="flex-1">
-        <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Height (px)</label>
-        <UInput
-          :model-value="calculatedHeight"
-          type="number"
-          size="sm"
-          disabled
-        />
-      </div>
-    </div>
-
-    <!-- Reset button -->
+  <div class="flex items-center gap-1.5">
+    <label class="text-xs text-gray-500 dark:text-gray-400">W</label>
+    <UInput
+      v-model="customWidthInput"
+      type="number"
+      :min="1"
+      :max="MAX_WIDTH"
+      size="xs"
+      class="w-14"
+      :color="useCustomSize && !isWidthValid ? 'error' : 'neutral'"
+      @focus="enableCustomSize"
+    />
+    <span class="text-xs text-gray-400 dark:text-gray-500">&times;</span>
+    <label class="text-xs text-gray-500 dark:text-gray-400">H</label>
+    <UInput
+      :model-value="calculatedHeight"
+      type="number"
+      size="xs"
+      class="w-14"
+      disabled
+    />
     <UButton
       v-if="useCustomSize"
       icon="i-lucide-rotate-ccw"
-      label="Reset to original"
       size="xs"
       color="neutral"
       variant="ghost"
-      class="mt-2"
+      title="Reset to original size"
       @click="resetToOriginalSize"
     />
-  </UFormField>
+  </div>
 </template>
+
+<style scoped>
+:deep(input[type="number"]) {
+  -moz-appearance: textfield;
+}
+
+:deep(input[type="number"])::-webkit-outer-spin-button,
+:deep(input[type="number"])::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+</style>
