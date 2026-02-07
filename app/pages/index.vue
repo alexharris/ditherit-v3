@@ -304,38 +304,68 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
       <div class="flex-1 overflow-y-auto py-4">
           <!-- Dither Mode -->
           <div class="space-y-6 px-4">
-            <UFormField label="Dither Mode">
-              <URadioGroup v-model="ditherMode" :items="ditherModes" />
-            </UFormField>
+            <HelpTooltip>
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Dither Mode</span>
+              </template>
+              <template #help>
+                These methods are different ways to spread around the quantization
+                error introduced by reducing an image's color palette. They look quite
+                different, try them out!
+              </template>
+              <URadioGroup v-model="ditherMode" :items="ditherModes" class="mt-2" />
+            </HelpTooltip>
 
             <!-- Algorithm (for diffusion mode) -->
-            <UFormField v-if="ditherMode === 'diffusion'" label="Algorithm">
+            <HelpTooltip v-if="ditherMode === 'diffusion'">
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Algorithm</span>
+              </template>
+              <template #help>
+                These are different ways of spreading the quantization errors around.
+                Certain ones might work better than others depending on the image.
+              </template>
               <USelect
                 v-model="algorithm"
                 :items="DIFFUSION_ALGORITHMS"
-                class="w-full"
+                class="mt-2 w-full"
               />
-            </UFormField>
+            </HelpTooltip>
 
             <!-- Pixeliness -->
-            <UFormField label="Pixeliness">
-              <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
-              <template #hint>
-                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
+            <HelpTooltip>
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Pixeliness</span>
               </template>
-            </UFormField>
+              <template #help>
+                Makes images more "pixely" by increasing the block size.
+                Higher values create a more retro, chunky look.
+              </template>
+              <div class="mt-2">
+                <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
+                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
+              </div>
+            </HelpTooltip>
           </div>
 
           <USeparator class="my-6" :ui="{ border: 'border-t' }" />
 
           <!-- Palette Editor -->
           <div class="px-4">
-            <UFormField label="Palette">
+            <HelpTooltip>
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Palette</span>
+              </template>
+              <template #help>
+                The color palette used for dithering. Choose a preset, edit individual
+                colors, or create and save your own custom palettes.
+              </template>
               <PaletteEditor
                 :palette="paletteColors"
                 :custom-palettes="customPalettes"
                 :selected-preset="selectedPreset"
                 :is-custom-palette-selected="isCustomPaletteSelected"
+                class="mt-2"
                 @select-preset="selectPreset"
                 @set-color="setColorAt"
                 @add-color="addColor"
@@ -344,7 +374,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
                 @delete-custom="deleteCustomPalette"
                 @import="importFromJson"
               />
-            </UFormField>
+            </HelpTooltip>
           </div>
 
           <USeparator class="my-6" :ui="{ border: 'border-t' }" />
@@ -366,11 +396,20 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
               </UButton>
               <template #content>
                 <div class="space-y-3 pt-2">
-                  <UCheckbox
-                    v-if="ditherMode === 'diffusion'"
-                    v-model="serpentine"
-                    label="Serpentine"
-                  />
+                  <HelpTooltip v-if="ditherMode === 'diffusion'">
+                    <template #label>
+                      <span class="text-sm font-medium text-highlighted">Serpentine</span>
+                    </template>
+                    <template #help>
+                      This determines if the dithering just goes left to right, top to
+                      bottom, or does a snake wiggle.
+                    </template>
+                    <UCheckbox
+                      v-model="serpentine"
+                      label="Enable"
+                      class="mt-2"
+                    />
+                  </HelpTooltip>
                 </div>
               </template>
             </UCollapsible>
