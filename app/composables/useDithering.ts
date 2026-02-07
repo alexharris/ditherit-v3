@@ -1,5 +1,5 @@
 import RgbQuant from 'rgbquant'
-import { addPixelation } from '~/utils/dithering'
+import { addPixelation, bayerDither } from '~/utils/dithering'
 
 export interface RgbQuantOptions {
   colors: number
@@ -141,31 +141,46 @@ export function useDithering() {
       ctx.drawImage(sourceImage, 0, 0, finalWidth, finalHeight)
 
       if (ditherMode.value === 'bayer') {
-        // --- Bayer path: offload to Web Worker ---
-        const imageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+        // --- Bayer path: offload to Web Worker with main-thread fallback ---
         const paletteToUse = palette.value.length > 0 ? palette.value : analyzePalette(sourceImage)
 
-        const result = await new Promise<{ pixels: ArrayBuffer; width: number; height: number }>((resolve) => {
-          const w = getWorker()
-          w.onmessage = (e) => resolve(e.data)
-          w.postMessage({
-            pixels: imageData.data.buffer,
-            width: finalWidth,
-            height: finalHeight,
-            palette: paletteToUse,
-            blockSize: pixeliness.value
-          }, [imageData.data.buffer])
-        })
+        try {
+          const imageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+          const result = await new Promise<{ pixels: ArrayBuffer; width: number; height: number }>((resolve, reject) => {
+            const w = getWorker()
+            const timeoutId = setTimeout(() => reject(new Error('Bayer worker timeout')), 10_000)
+            w.onmessage = (e) => {
+              clearTimeout(timeoutId)
+              resolve(e.data)
+            }
+            w.onerror = (e) => {
+              clearTimeout(timeoutId)
+              reject(e)
+            }
+            w.postMessage({
+              pixels: imageData.data.buffer,
+              width: finalWidth,
+              height: finalHeight,
+              palette: paletteToUse,
+              blockSize: pixeliness.value
+            }, [imageData.data.buffer])
+          })
 
-        const processedData = new ImageData(
-          new Uint8ClampedArray(result.pixels),
-          result.width,
-          result.height
-        )
-        ctx.putImageData(processedData, 0, 0)
+          const processedData = new ImageData(
+            new Uint8ClampedArray(result.pixels),
+            result.width,
+            result.height
+          )
+          ctx.putImageData(processedData, 0, 0)
 
-        if (pixeliness.value > 1) {
-          addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
+          if (pixeliness.value > 1) {
+            addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
+          }
+        } catch {
+          // Worker failed — fall back to main-thread Bayer dithering
+          ctx.drawImage(sourceImage, 0, 0, finalWidth, finalHeight)
+          const freshImageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+          bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value)
         }
       } else {
         // --- Error diffusion path: cache RgbQuant instance ---
