@@ -303,7 +303,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
       <!-- Sidebar Content -->
       <div class="flex-1 overflow-y-auto py-4">
           <!-- Dither Mode -->
-          <div class="space-y-6 px-4">
+          <div class="space-y-4 px-4 pb-4">
             <HelpTooltip>
               <template #label>
                 <span class="text-sm font-medium text-highlighted">Dither Mode</span>
@@ -317,41 +317,18 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
             </HelpTooltip>
 
             <!-- Algorithm (for diffusion mode) -->
-            <HelpTooltip v-if="ditherMode === 'diffusion'">
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Algorithm</span>
-              </template>
-              <template #help>
-                These are different ways of spreading the quantization errors around.
-                Certain ones might work better than others depending on the image.
-              </template>
-              <USelect
-                v-model="algorithm"
-                :items="DIFFUSION_ALGORITHMS"
-                class="mt-2 w-full"
-              />
-            </HelpTooltip>
-
-            <!-- Pixeliness -->
-            <HelpTooltip>
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Pixeliness</span>
-              </template>
-              <template #help>
-                Makes images more "pixely" by increasing the block size.
-                Higher values create a more retro, chunky look.
-              </template>
-              <div class="mt-2">
-                <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
-                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
-              </div>
-            </HelpTooltip>
+            <USelect
+              v-if="ditherMode === 'diffusion'"
+              v-model="algorithm"
+              :items="DIFFUSION_ALGORITHMS"
+              class="w-full"
+            />
           </div>
 
-          <USeparator class="my-6" :ui="{ border: 'border-t' }" />
+          <USeparator />
 
           <!-- Palette Editor -->
-          <div class="px-4">
+          <div class="px-4 py-4">
             <HelpTooltip>
               <template #label>
                 <span class="text-sm font-medium text-highlighted">Palette</span>
@@ -377,10 +354,29 @@ watch([ditherMode, algorithm, serpentine, pixeliness, paletteAsRgb], () => {
             </HelpTooltip>
           </div>
 
-          <USeparator class="my-6" :ui="{ border: 'border-t' }" />
+          <USeparator />
+
+          <!-- Pixeliness -->
+          <div class="px-4 py-4">
+            <HelpTooltip>
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Pixeliness</span>
+              </template>
+              <template #help>
+                Makes images more "pixely" by increasing the block size.
+                Higher values create a more retro, chunky look.
+              </template>
+              <div class="mt-2">
+                <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
+                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
+              </div>
+            </HelpTooltip>
+          </div>
+
+          <USeparator />
 
           <!-- Advanced -->
-          <div class="px-4">
+          <div class="px-4 pt-4">
             <UCollapsible>
               <UButton
                 color="neutral"
