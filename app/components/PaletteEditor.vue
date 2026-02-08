@@ -122,11 +122,11 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
       <div v-for="(color, i) in palette" :key="i" class="relative">
         <button
           type="button"
-          class="size-7 rounded-full border-2 cursor-pointer transition-all"
+          class="size-7 rounded-full shadow-sm shadow-black/30 cursor-pointer transition-all"
           :class="[
             editingIndex === i
-              ? 'border-red-500 ring-2 ring-red-500/30 scale-110'
-              : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+              ? 'ring-2 ring-red-500/30 scale-110'
+              : ''
           ]"
           :style="{ backgroundColor: color.hex }"
           :aria-label="`Edit color ${color.hex}`"
