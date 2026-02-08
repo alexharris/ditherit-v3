@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dither it! — Print Bureau</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@1,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --paper: #F2EDE4;
+    --yellow: #FFDE03;
+    --yellow-dark: #E6C800;
+    --black: #1A1A1A;
+    --pink: #FF3366;
+    --indigo: #2B2D7B;
+    --gray: #B8B0A0;
+    --gray-light: #DDD8CE;
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--paper);
+    color: var(--black);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Graph paper background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(var(--gray-light) 1px, transparent 1px),
+      linear-gradient(90deg, var(--gray-light) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Left control panel */
+  .panel {
+    width: 340px;
+    background: var(--yellow);
+    border-right: 3px solid var(--black);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Halftone dot overlay on panel */
+  .panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+    background-size: 6px 6px;
+    pointer-events: none;
+  }
+
+  /* Header */
+  .header {
+    padding: 16px 20px;
+    border-bottom: 3px solid var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+  }
+
+  .logo {
+    font-family: 'Anybody', sans-serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 28px;
+    color: var(--black);
+    text-shadow: 3px 3px 0 var(--pink);
+    transform: rotate(-2deg);
+    display: inline-block;
+  }
+
+  .theme-btn {
+    width: 32px;
+    height: 32px;
+    background: var(--black);
+    border: 3px solid var(--black);
+    color: var(--yellow);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0s;
+  }
+  .theme-btn:hover {
+    background: var(--yellow);
+    color: var(--black);
+  }
+
+  /* Thumbnail job queue */
+  .job-queue {
+    padding: 12px 20px;
+    border-bottom: 3px solid var(--black);
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .job-thumb {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--black);
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0s;
+  }
+  .job-thumb:hover { border-color: var(--pink); }
+  .job-thumb.active {
+    border-color: var(--pink);
+    box-shadow: 4px 4px 0 var(--black);
+  }
+  .job-thumb .thumb-img {
+    width: 100%;
+    height: 100%;
+  }
+  .job-thumb .thumb-check {
+    position: absolute;
+    top: 0; right: 0;
+    background: var(--pink);
+    color: white;
+    font-size: 8px;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .job-add {
+    width: 48px;
+    height: 48px;
+    border: 3px dashed var(--black);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: 700;
+    opacity: 0.5;
+    transition: all 0s;
+  }
+  .job-add:hover { opacity: 1; }
+
+  /* Panel content */
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    border-bottom: 3px solid var(--black);
+    padding: 16px 20px;
+  }
+
+  .section-title {
+    font-family: 'Anybody', sans-serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    display: inline-block;
+    position: relative;
+  }
+  .section-title::after {
+    content: '';
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    bottom: -1px;
+    height: 8px;
+    background: var(--pink);
+    opacity: 0.4;
+    z-index: -1;
+  }
+
+  /* Brutalist radio buttons */
+  .brut-radios {
+    display: flex;
+    gap: 0;
+  }
+  .brut-radio {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 14px;
+    border: 3px solid var(--black);
+    background: var(--paper);
+    color: var(--black);
+    cursor: pointer;
+    transition: all 0s;
+    margin-right: -3px;
+  }
+  .brut-radio:hover {
+    background: var(--black);
+    color: var(--yellow);
+  }
+  .brut-radio.active {
+    background: var(--black);
+    color: var(--yellow);
+  }
+
+  /* Brutalist select */
+  .brut-select {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 28px 8px 10px;
+    border: 3px solid var(--black);
+    background: var(--paper);
+    color: var(--black);
+    width: 100%;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%231A1A1A'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    margin-top: 8px;
+  }
+
+  /* Palette */
+  .palette-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .pal-swatch {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--black);
+    cursor: pointer;
+    transition: all 0s;
+  }
+  .pal-swatch:hover {
+    transform: scale(1.1);
+    box-shadow: 3px 3px 0 var(--black);
+  }
+  .pal-swatch.editing {
+    border-color: var(--pink);
+    box-shadow: 0 0 0 3px var(--pink);
+  }
+  .pal-add {
+    width: 36px;
+    height: 36px;
+    border: 3px dashed var(--black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.5;
+  }
+  .pal-add:hover { opacity: 1; }
+
+  .palette-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  /* Brutalist small button */
+  .brut-btn-sm {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 5px 10px;
+    border: 2px solid var(--black);
+    background: var(--paper);
+    color: var(--black);
+    cursor: pointer;
+    transition: all 0s;
+  }
+  .brut-btn-sm:hover {
+    background: var(--black);
+    color: var(--yellow);
+  }
+
+  /* Slider */
+  .brut-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brut-slider-track {
+    flex: 1;
+    height: 10px;
+    background: var(--paper);
+    border: 3px solid var(--black);
+    position: relative;
+  }
+  .brut-slider-fill {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 30%;
+    background: var(--pink);
+  }
+  .brut-slider-val {
+    font-weight: 700;
+    font-size: 13px;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  /* Checkbox */
+  .brut-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+  }
+  .brut-check-box {
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--black);
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pink);
+  }
+
+  /* Big stamp button */
+  .stamp-btn {
+    width: 100%;
+    padding: 16px;
+    font-family: 'Anybody', sans-serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 3px solid var(--black);
+    background: var(--pink);
+    color: white;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 var(--black);
+    transition: all 0s;
+    position: relative;
+    z-index: 1;
+  }
+  .stamp-btn:active {
+    box-shadow: 2px 2px 0 var(--black);
+    transform: translate(4px, 4px);
+  }
+
+  /* Panel footer */
+  .panel-footer {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .brut-btn-outline {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 14px;
+    border: 3px solid var(--black);
+    background: transparent;
+    color: var(--black);
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    transition: all 0s;
+  }
+  .brut-btn-outline:hover {
+    background: var(--black);
+    color: var(--yellow);
+  }
+
+  /* Right / canvas area */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Proof sheet — tilted image */
+  .proof-sheet {
+    position: relative;
+    transform: rotate(-1.5deg);
+    transition: transform 0.15s ease;
+  }
+  .proof-sheet:hover {
+    transform: rotate(0deg);
+  }
+
+  .proof-paper {
+    background: white;
+    padding: 24px;
+    box-shadow: 8px 8px 0 var(--black);
+    border: 3px solid var(--black);
+  }
+
+  .proof-img {
+    width: 500px;
+    height: 375px;
+    background:
+      repeating-conic-gradient(var(--gray-light) 0% 25%, white 0% 50%) 0 0 / 20px 20px;
+    border: 2px solid var(--gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .proof-label {
+    font-family: 'Anybody', sans-serif;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--gray);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Image toolbar below proof */
+  .proof-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    justify-content: center;
+  }
+
+  .proof-btn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 12px;
+    border: 3px solid var(--black);
+    background: var(--paper);
+    color: var(--black);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--black);
+    transition: all 0s;
+  }
+  .proof-btn:hover {
+    background: var(--black);
+    color: var(--paper);
+  }
+  .proof-btn:active {
+    box-shadow: 1px 1px 0 var(--black);
+    transform: translate(2px, 2px);
+  }
+
+  /* File specs table (below image) */
+  .file-specs {
+    margin-top: 20px;
+    border: 3px solid var(--black);
+    background: white;
+    width: 500px;
+    transform: rotate(-1.5deg);
+  }
+  .proof-sheet:hover ~ .file-specs,
+  .file-specs:hover {
+    transform: rotate(0deg);
+  }
+
+  .spec-row {
+    display: flex;
+    border-bottom: 2px solid var(--black);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .spec-row:last-child { border-bottom: none; }
+
+  .spec-label {
+    width: 120px;
+    padding: 8px 12px;
+    background: var(--black);
+    color: var(--yellow);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 10px;
+  }
+
+  .spec-value {
+    flex: 1;
+    padding: 8px 12px;
+    font-weight: 700;
+  }
+
+  .spec-bar {
+    flex: 1;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 12px;
+    background: var(--gray-light);
+    position: relative;
+  }
+  .bar-orig {
+    position: absolute;
+    inset: 0;
+    background: var(--indigo);
+    opacity: 0.3;
+  }
+  .bar-dith {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 62%;
+    background: var(--pink);
+  }
+  .bar-val {
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Left Panel -->
+  <aside class="panel">
+
+    <!-- Header -->
+    <div class="header">
+      <span class="logo">Dither it!</span>
+      <button class="theme-btn">&#9789;</button>
+    </div>
+
+    <!-- Job Queue (thumbnails) -->
+    <div class="job-queue">
+      <div class="job-thumb active">
+        <div class="thumb-img" style="background:linear-gradient(135deg,#6a8a5a,#3a5a2a)"></div>
+        <span class="thumb-check">&#10003;</span>
+      </div>
+      <div class="job-thumb">
+        <div class="thumb-img" style="background:linear-gradient(135deg,#7a5a8a,#4a2a5a)"></div>
+      </div>
+      <div class="job-thumb">
+        <div class="thumb-img" style="background:linear-gradient(135deg,#8a7a3a,#5a4a1a)"></div>
+      </div>
+      <div class="job-add">+</div>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="panel-content">
+
+      <!-- Dither Mode -->
+      <div class="section">
+        <div class="section-title">Dither Mode</div>
+        <div class="brut-radios">
+          <button class="brut-radio active">Error Diffusion</button>
+          <button class="brut-radio">Bayer</button>
+        </div>
+        <select class="brut-select">
+          <option>Floyd-Steinberg</option>
+          <option>Atkinson</option>
+          <option>Stucki</option>
+          <option>Jarvis-Judice-Ninke</option>
+        </select>
+      </div>
+
+      <!-- Palette -->
+      <div class="section">
+        <div class="section-title">Palette</div>
+        <div class="palette-grid">
+          <div class="pal-swatch" style="background:#1a1a2e"></div>
+          <div class="pal-swatch editing" style="background:#e94560"></div>
+          <div class="pal-swatch" style="background:#0f3460"></div>
+          <div class="pal-swatch" style="background:#16213e"></div>
+          <div class="pal-swatch" style="background:#533483"></div>
+          <div class="pal-swatch" style="background:#e07c24"></div>
+          <div class="pal-swatch" style="background:#2b9348"></div>
+          <div class="pal-swatch" style="background:#f2ede4"></div>
+          <div class="pal-add">+</div>
+        </div>
+        <select class="brut-select" style="margin-top:0; margin-bottom:8px;">
+          <option>Original (from image)</option>
+          <option>Gameboy</option>
+          <option>CGA</option>
+        </select>
+        <div class="palette-actions">
+          <button class="brut-btn-sm">Save</button>
+          <button class="brut-btn-sm">Export</button>
+          <button class="brut-btn-sm">Import</button>
+        </div>
+      </div>
+
+      <!-- Pixeliness -->
+      <div class="section">
+        <div class="section-title">Pixeliness</div>
+        <div class="brut-slider-row">
+          <div class="brut-slider-track">
+            <div class="brut-slider-fill"></div>
+          </div>
+          <span class="brut-slider-val">4x</span>
+        </div>
+      </div>
+
+      <!-- Advanced -->
+      <div class="section">
+        <div class="section-title">Advanced</div>
+        <label class="brut-check">
+          <div class="brut-check-box">&#10003;</div>
+          Serpentine
+        </label>
+      </div>
+
+    </div>
+
+    <!-- Footer actions -->
+    <div class="panel-footer">
+      <div class="footer-actions">
+        <button class="brut-btn-outline">Upload</button>
+        <button class="brut-btn-outline">Clear All</button>
+      </div>
+      <button class="stamp-btn">&#9654; Print Run</button>
+    </div>
+
+  </aside>
+
+  <!-- Canvas area -->
+  <div class="canvas-area">
+
+    <div class="proof-sheet">
+      <div class="proof-paper">
+        <div class="proof-img">
+          <span class="proof-label">Proof Sheet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image toolbar -->
+    <div class="proof-toolbar" style="transform:rotate(-1.5deg);">
+      <button class="proof-btn">800 &times; 600</button>
+      <button class="proof-btn">Compare</button>
+      <button class="proof-btn">Download</button>
+    </div>
+
+    <!-- File specs table -->
+    <div class="file-specs">
+      <div class="spec-row">
+        <span class="spec-label">Original</span>
+        <span class="spec-value">245.3 KB</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">Dithered</span>
+        <span class="spec-value" style="color:var(--pink);">152.1 KB</span>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">Comparison</span>
+        <div class="spec-bar">
+          <div class="bar-track">
+            <div class="bar-orig"></div>
+            <div class="bar-dith"></div>
+          </div>
+          <span class="bar-val">62%</span>
+        </div>
+      </div>
+      <div class="spec-row">
+        <span class="spec-label">Saved</span>
+        <span class="spec-value" style="color:var(--indigo);">93.2 KB</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</body>
+</html>

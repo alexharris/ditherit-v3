@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dither it! — Darkroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0A0808;
+    --bg-warm: #1C1410;
+    --border: #3A2A1E;
+    --red: #8B1A1A;
+    --red-glow: #C62828;
+    --cream: #D4C5A9;
+    --cream-dim: #8A7E6A;
+    --amber: #C4951B;
+    --surface: #141010;
+  }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background: var(--bg);
+    color: var(--cream);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Film grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    z-index: 9999;
+  }
+
+  /* Layout */
+  .app {
+    display: flex;
+    height: 100vh;
+    flex-direction: row;
+  }
+
+  /* Film strip / vertical thumbnail sidebar */
+  .film-strip {
+    width: 72px;
+    background: #080606;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 12px;
+    overflow-y: auto;
+  }
+
+  .film-strip::before {
+    content: '';
+    display: block;
+    width: 56px;
+    height: 8px;
+    border-top: 2px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 4px;
+  }
+
+  .film-frame {
+    width: 52px;
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+
+  .film-frame.active {
+    border-color: var(--red);
+    box-shadow: 0 0 8px rgba(139, 26, 26, 0.4);
+  }
+
+  .film-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+  }
+
+  .film-frame .sprocket {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    padding: 3px 0;
+  }
+  .film-frame .sprocket.left { left: 0; }
+  .film-frame .sprocket.right { right: 0; }
+  .film-frame .sprocket span {
+    display: block;
+    width: 4px;
+    height: 3px;
+    background: #080606;
+    border-radius: 0.5px;
+    margin: 0 auto;
+  }
+
+  .film-add {
+    width: 52px;
+    height: 40px;
+    border: 1px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cream-dim);
+    font-size: 20px;
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  .film-add:hover {
+    border-color: var(--cream-dim);
+    color: var(--cream);
+  }
+
+  /* Main area */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Header */
+  .header {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 24px;
+    color: var(--red);
+    letter-spacing: 0.02em;
+  }
+
+  .header-actions {
+    position: absolute;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Image area */
+  .image-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Crosshair reticle background */
+  .image-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  .image-container {
+    position: relative;
+    animation: develop 1.2s ease-out;
+  }
+
+  @keyframes develop {
+    from { opacity: 0; filter: brightness(0.3) contrast(0.5); }
+    to { opacity: 1; filter: brightness(1) contrast(1); }
+  }
+
+  .image-container img {
+    max-height: 55vh;
+    max-width: 70vw;
+    display: block;
+    border: 1px solid var(--border);
+  }
+
+  /* Exposure meter (file size) */
+  .exposure-meter {
+    position: absolute;
+    top: -8px;
+    right: -140px;
+    width: 124px;
+    background: var(--bg-warm);
+    border: 1px solid var(--border);
+    padding: 12px;
+    font-size: 11px;
+  }
+
+  .meter-title {
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-size: 9px;
+    color: var(--cream-dim);
+    margin-bottom: 10px;
+  }
+
+  .meter-bar {
+    height: 4px;
+    background: var(--border);
+    margin: 8px 0;
+    position: relative;
+  }
+  .meter-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--amber);
+    width: 62%;
+    transition: width 0.6s ease;
+  }
+
+  .meter-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  .meter-label { color: var(--cream-dim); }
+  .meter-value { color: var(--cream); }
+  .meter-value.saved { color: var(--amber); }
+
+  /* Bottom control tray */
+  .control-tray {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .control-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--cream-dim);
+  }
+
+  /* Radio pills */
+  .radio-pills {
+    display: flex;
+    gap: 4px;
+  }
+
+  .radio-pill {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--cream-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .radio-pill:hover { border-color: var(--cream-dim); }
+  .radio-pill.active {
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--cream);
+    box-shadow: 0 0 12px rgba(139, 26, 26, 0.3);
+  }
+
+  /* Select */
+  .dark-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--cream);
+    padding: 6px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    min-width: 160px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A7E6A'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+
+  /* Palette swatches (rectangular chips) */
+  .palette-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .palette-chip {
+    width: 24px;
+    height: 16px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .palette-chip:hover {
+    border-color: var(--cream-dim);
+    transform: scale(1.15);
+  }
+  .palette-chip.editing {
+    border-color: var(--red);
+    box-shadow: 0 0 6px rgba(139, 26, 26, 0.4);
+  }
+  .palette-add {
+    width: 24px;
+    height: 16px;
+    border: 1px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cream-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* Slider */
+  .slider-track {
+    width: 140px;
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    cursor: pointer;
+  }
+  .slider-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    width: 30%;
+    background: var(--red);
+  }
+  .slider-thumb {
+    position: absolute;
+    top: 50%;
+    left: 30%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: var(--cream);
+    border: 2px solid var(--red);
+    border-radius: 50%;
+  }
+  .slider-value {
+    font-size: 10px;
+    color: var(--cream-dim);
+    margin-top: 4px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--cream);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .btn:hover {
+    border-color: var(--cream-dim);
+    background: var(--bg-warm);
+  }
+  .btn-primary {
+    background: var(--red);
+    border-color: var(--red);
+  }
+  .btn-primary:hover {
+    background: var(--red-glow);
+    border-color: var(--red-glow);
+    box-shadow: 0 0 16px rgba(139, 26, 26, 0.4);
+  }
+
+  /* Image toolbar */
+  .image-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+  }
+  .image-toolbar .btn { font-size: 10px; padding: 5px 10px; }
+
+  /* Preset select inline */
+  .preset-select-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* Processing pulse */
+  @keyframes safelight-pulse {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.35; }
+  }
+  .processing-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--red);
+    animation: safelight-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Placeholder image */
+  .placeholder-img {
+    width: 480px;
+    height: 360px;
+    background:
+      repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%) 0 0 / 20px 20px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cream-dim);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Film Strip (vertical thumbnails) -->
+  <nav class="film-strip">
+    <div class="film-frame active">
+      <div class="sprocket left"><span></span><span></span><span></span></div>
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#4a6741,#2a3a28)"></div>
+      <div class="sprocket right"><span></span><span></span><span></span></div>
+    </div>
+    <div class="film-frame">
+      <div class="sprocket left"><span></span><span></span><span></span></div>
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#5a4a6a,#3a2a4a)"></div>
+      <div class="sprocket right"><span></span><span></span><span></span></div>
+    </div>
+    <div class="film-frame">
+      <div class="sprocket left"><span></span><span></span><span></span></div>
+      <div style="width:100%;height:100%;background:linear-gradient(135deg,#6a5a3a,#4a3a2a)"></div>
+      <div class="sprocket right"><span></span><span></span><span></span></div>
+    </div>
+    <div class="film-add">+</div>
+  </nav>
+
+  <!-- Main Area -->
+  <div class="main-area">
+
+    <!-- Header -->
+    <header class="header">
+      <span class="logo">Dither it!</span>
+      <div class="header-actions">
+        <button class="btn" style="padding:5px 10px; font-size:10px;">&#9789;</button>
+      </div>
+    </header>
+
+    <!-- Image Area -->
+    <div class="image-area">
+      <div class="image-container">
+        <div class="placeholder-img">
+          <span>dithered print</span>
+        </div>
+
+        <!-- Exposure Meter -->
+        <div class="exposure-meter">
+          <div class="meter-title">Exposure Report</div>
+          <div class="meter-row">
+            <span class="meter-label">Original</span>
+            <span class="meter-value">245.3 KB</span>
+          </div>
+          <div class="meter-bar"><div class="meter-bar-fill"></div></div>
+          <div class="meter-row">
+            <span class="meter-label">Dithered</span>
+            <span class="meter-value">152.1 KB</span>
+          </div>
+          <div style="border-top:1px solid var(--border); margin-top:8px; padding-top:8px;">
+            <div class="meter-row">
+              <span class="meter-label">Saved</span>
+              <span class="meter-value saved">93.2 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image toolbar -->
+        <div class="image-toolbar">
+          <button class="btn" style="font-size:10px;padding:4px 8px;">800 &times; 600</button>
+          <div style="flex:1"></div>
+          <button class="btn">Compare</button>
+          <button class="btn btn-primary">Print</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control Tray -->
+    <div class="control-tray">
+
+      <!-- Dither Mode -->
+      <div class="control-group">
+        <span class="control-label">Dither Mode</span>
+        <div class="radio-pills">
+          <button class="radio-pill active">Error Diffusion</button>
+          <button class="radio-pill">Bayer</button>
+        </div>
+        <select class="dark-select">
+          <option>Floyd-Steinberg</option>
+          <option>Atkinson</option>
+          <option>Stucki</option>
+          <option>Jarvis-Judice-Ninke</option>
+        </select>
+      </div>
+
+      <!-- Palette -->
+      <div class="control-group">
+        <span class="control-label">Palette</span>
+        <div class="palette-chips">
+          <div class="palette-chip" style="background:#1a1a2e"></div>
+          <div class="palette-chip editing" style="background:#e94560"></div>
+          <div class="palette-chip" style="background:#0f3460"></div>
+          <div class="palette-chip" style="background:#16213e"></div>
+          <div class="palette-chip" style="background:#533483"></div>
+          <div class="palette-chip" style="background:#e07c24"></div>
+          <div class="palette-chip" style="background:#2b9348"></div>
+          <div class="palette-chip" style="background:#d4c5a9"></div>
+          <div class="palette-add">+</div>
+        </div>
+        <div class="preset-select-row">
+          <select class="dark-select" style="min-width:120px;">
+            <option>Original</option>
+            <option>Gameboy</option>
+            <option>CGA</option>
+          </select>
+          <button class="btn" style="font-size:9px;padding:4px 8px;">Save</button>
+        </div>
+      </div>
+
+      <!-- Pixeliness -->
+      <div class="control-group">
+        <span class="control-label">Pixeliness</span>
+        <div class="slider-track">
+          <div class="slider-fill"></div>
+          <div class="slider-thumb"></div>
+        </div>
+        <span class="slider-value">4x</span>
+      </div>
+
+      <!-- Advanced -->
+      <div class="control-group">
+        <span class="control-label">Advanced</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--cream-dim);">
+          <input type="checkbox" checked style="accent-color:var(--red);">
+          Serpentine
+        </label>
+      </div>
+
+      <!-- Actions -->
+      <div class="control-group" style="margin-left:auto;justify-content:flex-end;align-self:center;">
+        <div style="display:flex;gap:8px;">
+          <button class="btn">Load Negative</button>
+          <button class="btn">Clear</button>
+          <button class="btn btn-primary">Print All</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

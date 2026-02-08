@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dither it! — Pixel Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0F0F23;
+    --surface: #16162E;
+    --border: #1A1A3E;
+    --green: #00FF41;
+    --green-dim: #00993A;
+    --cyan: #00D4FF;
+    --magenta: #FF2975;
+    --text: #C0C0E0;
+    --text-dim: #6A6A8E;
+    --yellow: #FFE100;
+  }
+
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.12) 2px,
+      rgba(0, 0, 0, 0.12) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+    gap: 16px;
+  }
+
+  .logo {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.4), 2px 2px 0 #001a0a;
+    white-space: nowrap;
+  }
+
+  .header-spacer { flex: 1; }
+
+  .header-btn {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 8px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.05s steps(1);
+  }
+  .header-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  /* Toolbar row */
+  .toolbar {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+  }
+
+  .tool-section {
+    padding: 10px 16px;
+    border-right: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tool-section:last-child { border-right: none; }
+
+  .tool-label {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 7px;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tool-content {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* Pixel buttons */
+  .px-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.05s steps(1);
+    box-shadow: 3px 3px 0 #000;
+  }
+  .px-btn:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+  .px-btn:active {
+    box-shadow: 1px 1px 0 #000;
+    transform: translate(2px, 2px);
+  }
+  .px-btn.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg);
+    box-shadow: 3px 3px 0 var(--green-dim);
+  }
+
+  /* Pixel select */
+  .px-select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 24px 5px 8px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: 3px 3px 0 #000;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23C0C0E0'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+  }
+
+  /* Palette grid */
+  .palette-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .palette-sq {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #000;
+    cursor: pointer;
+    transition: all 0.05s steps(1);
+  }
+  .palette-sq:hover {
+    transform: scale(1.3);
+    z-index: 1;
+    border-color: var(--cyan);
+  }
+  .palette-sq.editing {
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 1px var(--yellow);
+  }
+  .palette-add-sq {
+    width: 18px;
+    height: 18px;
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* Slider (pixel style) */
+  .px-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .px-slider-track {
+    width: 100px;
+    height: 8px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    position: relative;
+  }
+  .px-slider-fill {
+    position: absolute;
+    inset: 0;
+    right: auto;
+    width: 35%;
+    background: var(--green);
+  }
+  .px-slider-val {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 8px;
+    color: var(--green);
+    min-width: 24px;
+  }
+
+  /* Checkbox */
+  .px-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .px-check-box {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--green);
+  }
+
+  /* Main content */
+  .main-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Viewport */
+  .viewport {
+    position: relative;
+    border: 4px solid var(--border);
+    box-shadow: 8px 8px 0 #000;
+  }
+
+  .viewport-img {
+    width: 520px;
+    height: 390px;
+    background:
+      repeating-conic-gradient(var(--surface) 0% 25%, var(--bg) 0% 50%) 0 0 / 24px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .viewport-label {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(15, 15, 35, 0.85);
+    border: 2px solid var(--border);
+    padding: 8px 12px;
+    font-size: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hud-title {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 7px;
+    color: var(--cyan);
+    margin-bottom: 2px;
+  }
+
+  .hp-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hp-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    width: 48px;
+  }
+  .hp-bar {
+    width: 80px;
+    height: 8px;
+    background: #1a0a0a;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .hp-fill {
+    position: absolute;
+    inset: 0;
+    right: auto;
+    background: var(--green);
+  }
+  .hp-fill.dithered { background: var(--cyan); }
+  .hp-val {
+    font-size: 9px;
+    color: var(--text);
+    width: 50px;
+    text-align: right;
+  }
+
+  /* Scanning animation */
+  @keyframes scanline {
+    0% { top: -10%; }
+    100% { top: 110%; }
+  }
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 30px;
+    background: linear-gradient(transparent, rgba(0, 255, 65, 0.06), transparent);
+    animation: scanline 3s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Image toolbar */
+  .viewport-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+
+  /* Bottom level-select bar */
+  .level-bar {
+    height: 72px;
+    background: var(--surface);
+    border-top: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+  }
+
+  .level-slot {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--border);
+    position: relative;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #000;
+    transition: all 0.05s steps(1);
+    overflow: hidden;
+  }
+  .level-slot:hover { border-color: var(--text); }
+  .level-slot.active {
+    border-color: var(--green);
+    box-shadow: 3px 3px 0 var(--green-dim);
+  }
+  .level-slot .slot-img {
+    width: 100%;
+    height: 100%;
+  }
+  .level-slot .slot-num {
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 6px;
+    color: var(--text);
+    text-shadow: 1px 1px 0 #000;
+  }
+  .level-slot .slot-check {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    font-size: 8px;
+    color: var(--green);
+    text-shadow: 1px 1px 0 #000;
+  }
+
+  .level-add {
+    width: 48px;
+    height: 48px;
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #000;
+  }
+  .level-add span {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .level-spacer { flex: 1; }
+
+  .action-btns {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn-start {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 9px;
+    padding: 10px 20px;
+    background: var(--green);
+    border: 2px solid var(--green);
+    color: var(--bg);
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--green-dim);
+    transition: all 0.05s steps(1);
+  }
+  .btn-start:active {
+    box-shadow: 1px 1px 0 var(--green-dim);
+    transform: translate(3px, 3px);
+  }
+
+  .btn-ghost {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 8px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #000;
+    transition: all 0.05s steps(1);
+  }
+  .btn-ghost:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+  .btn-ghost.danger:hover {
+    border-color: var(--magenta);
+    color: var(--magenta);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <span class="logo">DITHER IT!</span>
+    <div class="header-spacer"></div>
+    <button class="header-btn">&#9789;</button>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+
+    <!-- Mode -->
+    <div class="tool-section">
+      <span class="tool-label">[MODE]</span>
+      <div class="tool-content">
+        <button class="px-btn active">DIFFUSION</button>
+        <button class="px-btn">BAYER</button>
+      </div>
+    </div>
+
+    <!-- Algorithm -->
+    <div class="tool-section">
+      <span class="tool-label">[ALGO]</span>
+      <div class="tool-content">
+        <select class="px-select">
+          <option>Floyd-Steinberg</option>
+          <option>Atkinson</option>
+          <option>Stucki</option>
+          <option>Jarvis-Judice-Ninke</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Palette -->
+    <div class="tool-section">
+      <span class="tool-label">[PALETTE]</span>
+      <div class="tool-content">
+        <div class="palette-grid">
+          <div class="palette-sq" style="background:#0f0f23"></div>
+          <div class="palette-sq" style="background:#00ff41"></div>
+          <div class="palette-sq editing" style="background:#ff2975"></div>
+          <div class="palette-sq" style="background:#00d4ff"></div>
+          <div class="palette-sq" style="background:#ffe100"></div>
+          <div class="palette-sq" style="background:#c0c0e0"></div>
+          <div class="palette-sq" style="background:#7b2dff"></div>
+          <div class="palette-sq" style="background:#ff8c00"></div>
+          <div class="palette-add-sq">+</div>
+        </div>
+        <select class="px-select" style="min-width:90px;">
+          <option>Original</option>
+          <option>Gameboy</option>
+          <option>CGA</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Pixel -->
+    <div class="tool-section">
+      <span class="tool-label">[PIXEL]</span>
+      <div class="tool-content">
+        <div class="px-slider-wrap">
+          <div class="px-slider-track">
+            <div class="px-slider-fill"></div>
+          </div>
+          <span class="px-slider-val">4x</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="tool-section">
+      <span class="tool-label">[ADV]</span>
+      <div class="tool-content">
+        <label class="px-check">
+          <div class="px-check-box">&#10003;</div>
+          SERPENTINE
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <div>
+      <div class="viewport">
+        <div class="viewport-img">
+          <span class="viewport-label">-- viewport --</span>
+        </div>
+        <div class="scan-line"></div>
+
+        <!-- HUD -->
+        <div class="hud">
+          <span class="hud-title">FILE STATS</span>
+          <div class="hp-bar-row">
+            <span class="hp-label">ORIG</span>
+            <div class="hp-bar"><div class="hp-fill" style="width:100%"></div></div>
+            <span class="hp-val">245 KB</span>
+          </div>
+          <div class="hp-bar-row">
+            <span class="hp-label">DITH</span>
+            <div class="hp-bar"><div class="hp-fill dithered" style="width:62%"></div></div>
+            <span class="hp-val">152 KB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image toolbar -->
+      <div class="viewport-toolbar">
+        <button class="px-btn" style="font-size:10px;">800x600</button>
+        <button class="px-btn" style="font-size:10px;">COMPARE</button>
+        <button class="px-btn active" style="font-size:10px;">SAVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level select bar -->
+  <div class="level-bar">
+    <div class="level-slot active">
+      <div class="slot-img" style="background:linear-gradient(135deg,#2a4a2a,#1a3a1a)"></div>
+      <span class="slot-num">01</span>
+      <span class="slot-check">&#10003;</span>
+    </div>
+    <div class="level-slot">
+      <div class="slot-img" style="background:linear-gradient(135deg,#4a2a5a,#3a1a4a)"></div>
+      <span class="slot-num">02</span>
+    </div>
+    <div class="level-slot">
+      <div class="slot-img" style="background:linear-gradient(135deg,#5a4a1a,#4a3a0a)"></div>
+      <span class="slot-num">03</span>
+    </div>
+    <div class="level-add"><span>+</span></div>
+
+    <div class="level-spacer"></div>
+
+    <div class="action-btns">
+      <button class="btn-ghost">INSERT COIN</button>
+      <button class="btn-ghost danger">CLEAR</button>
+      <button class="btn-start">&#9654; SAVE ALL</button>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

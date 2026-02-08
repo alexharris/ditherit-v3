@@ -10,6 +10,7 @@ const {
   algorithm,
   serpentine,
   pixeliness,
+  pixelScale,
   bayerSize,
   palette,
   analyzePalette,
@@ -254,14 +255,14 @@ watch(paletteAsRgb, (newPalette) => {
 }, { deep: true })
 
 // Auto-dither selected image when any setting changes
-watch([ditherMode, algorithm, serpentine, pixeliness, bayerSize, paletteAsRgb, sizeWidth], () => {
+watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, paletteAsRgb, sizeWidth], () => {
   if (selectedImage.value && sizeValid.value) {
     debouncedDither()
   }
 }, { deep: true })
 
 // Clear dithered results when settings change (for non-selected images)
-watch([ditherMode, algorithm, serpentine, pixeliness, bayerSize, paletteAsRgb], () => {
+watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, paletteAsRgb], () => {
   // Mark other images as needing re-processing
   // Note: width changes only affect the selected image, so we don't include it here
   images.value.forEach((img) => {
@@ -361,6 +362,25 @@ watch([ditherMode, algorithm, serpentine, pixeliness, bayerSize, paletteAsRgb], 
                 @delete-custom="deleteCustomPalette"
                 @import="importFromJson"
               />
+            </HelpTooltip>
+          </div>
+
+          <USeparator />
+
+          <!-- Pixel Scale -->
+          <div class="px-4 py-4">
+            <HelpTooltip>
+              <template #label>
+                <span class="text-sm font-medium text-highlighted">Pixel Scale</span>
+              </template>
+              <template #help>
+                Dithers at a reduced resolution then upscales with nearest-neighbor
+                interpolation, producing coherent chunky pixels with uniform color blocks.
+              </template>
+              <div class="mt-2">
+                <USlider v-model="pixelScale" :min="1" :max="25" :step="1" />
+                <span class="text-xs text-gray-500">{{ pixelScale }}x</span>
+              </div>
             </HelpTooltip>
           </div>
 

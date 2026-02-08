@@ -70,6 +70,7 @@ export function useDithering() {
   const algorithm = ref('FloydSteinberg')
   const serpentine = ref(false)
   const pixeliness = ref(1)
+  const pixelScale = ref(1)
   const bayerSize = ref<BayerSize>(4)
   const palette = ref<number[][]>([])
 
@@ -138,16 +139,21 @@ export function useDithering() {
       const finalWidth = width || sourceImage.naturalWidth
       const finalHeight = (sourceImage.naturalHeight / sourceImage.naturalWidth) * finalWidth
 
-      targetCanvas.width = finalWidth
-      targetCanvas.height = finalHeight
-      ctx.drawImage(sourceImage, 0, 0, finalWidth, finalHeight)
+      // Pre-dither downscale for chunky pixel effect
+      const scale = pixelScale.value
+      const ditherWidth = scale > 1 ? Math.max(1, Math.round(finalWidth / scale)) : finalWidth
+      const ditherHeight = scale > 1 ? Math.max(1, Math.round(finalHeight / scale)) : finalHeight
+
+      targetCanvas.width = ditherWidth
+      targetCanvas.height = ditherHeight
+      ctx.drawImage(sourceImage, 0, 0, ditherWidth, ditherHeight)
 
       if (ditherMode.value === 'bayer') {
         // --- Bayer path: offload to Web Worker with main-thread fallback ---
         const paletteToUse = palette.value.length > 0 ? palette.value : analyzePalette(sourceImage)
 
         try {
-          const imageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+          const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
           const result = await new Promise<{ pixels: ArrayBuffer; width: number; height: number }>((resolve, reject) => {
             const w = getWorker()
             const timeoutId = setTimeout(() => reject(new Error('Bayer worker timeout')), 10_000)
@@ -161,8 +167,8 @@ export function useDithering() {
             }
             w.postMessage({
               pixels: imageData.data.buffer,
-              width: finalWidth,
-              height: finalHeight,
+              width: ditherWidth,
+              height: ditherHeight,
               palette: paletteToUse,
               blockSize: pixeliness.value,
               bayerSize: bayerSize.value
@@ -175,14 +181,10 @@ export function useDithering() {
             result.height
           )
           ctx.putImageData(processedData, 0, 0)
-
-          if (pixeliness.value > 1) {
-            addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
-          }
         } catch {
           // Worker failed — fall back to main-thread Bayer dithering
-          ctx.drawImage(sourceImage, 0, 0, finalWidth, finalHeight)
-          const freshImageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+          ctx.drawImage(sourceImage, 0, 0, ditherWidth, ditherHeight)
+          const freshImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
           bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value, bayerSize.value)
         }
       } else {
@@ -205,13 +207,28 @@ export function useDithering() {
         // Pass algorithm + serpentine explicitly so the cached instance
         // uses the current values even if they differ from construction
         const ditherResult = q.reduce(targetCanvas, 1, algorithm.value, serpentine.value)
-        const imageData = ctx.getImageData(0, 0, finalWidth, finalHeight)
+        const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
         imageData.data.set(ditherResult)
         ctx.putImageData(imageData, 0, 0)
+      }
 
-        if (pixeliness.value > 1) {
-          addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
-        }
+      // Upscale dithered result to full resolution with nearest-neighbor interpolation
+      if (scale > 1) {
+        const tempCanvas = document.createElement('canvas')
+        tempCanvas.width = ditherWidth
+        tempCanvas.height = ditherHeight
+        const tempCtx = tempCanvas.getContext('2d')!
+        tempCtx.drawImage(targetCanvas, 0, 0)
+
+        targetCanvas.width = finalWidth
+        targetCanvas.height = finalHeight
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(tempCanvas, 0, 0, finalWidth, finalHeight)
+      }
+
+      // Post-process pixelation (operates on upscaled result)
+      if (pixeliness.value > 1) {
+        addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
       }
 
       // Async PNG encoding — doesn't block the main thread
@@ -241,6 +258,7 @@ export function useDithering() {
     algorithm,
     serpentine,
     pixeliness,
+    pixelScale,
     bayerSize,
     palette,
 
