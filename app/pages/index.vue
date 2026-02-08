@@ -220,6 +220,13 @@ onMounted(() => {
   }
 })
 
+// Reload the frog when the last image is removed
+watch(hasImages, (has) => {
+  if (!has) {
+    addImageFromUrl(defaultImageUrl, 'quantfrog.png')
+  }
+})
+
 // Update palette and dimensions when selected image changes
 watch(selectedImage, async (newImage) => {
   if (newImage) {
@@ -562,6 +569,14 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                   size="xs"
                   :disabled="!selectedImage.ditheredDataUrl"
                   @click="downloadSingleImage"
+                />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  label="Remove"
+                  color="error"
+                  variant="ghost"
+                  size="xs"
+                  @click="removeImage(selectedImage.id)"
                 />
               </div>
 

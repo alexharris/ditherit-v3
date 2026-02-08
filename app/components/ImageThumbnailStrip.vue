@@ -38,20 +38,6 @@ const emit = defineEmits<{
       >
         <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-red-500" />
       </div>
-      <!-- Processed indicator -->
-      <div
-        v-else-if="image.ditheredDataUrl"
-        class="absolute bottom-0.5 right-0.5 rounded-full bg-green-500 p-0.5"
-      >
-        <UIcon name="i-lucide-check" class="size-2.5 text-white" />
-      </div>
-      <!-- Remove button -->
-      <button
-        class="absolute -right-1 -top-1 hidden rounded-full bg-red-500 p-0.5 text-white shadow group-hover:block"
-        @click.stop="emit('remove', image.id)"
-      >
-        <UIcon name="i-lucide-x" class="size-3" />
-      </button>
     </div>
     <!-- Add more button -->
     <button
