@@ -61,13 +61,11 @@ function handleColorClick(index: number) {
   editingIndex.value = editingIndex.value === index ? null : index
 }
 
-function handleColorChange(event: Event, index: number) {
-  const input = event.target as HTMLInputElement
-  emit('setColor', index, input.value)
-}
-
 function handleAddColor() {
   emit('addColor')
+  nextTick(() => {
+    editingIndex.value = props.palette.length - 1
+  })
 }
 
 function handleRemoveColor(index: number) {
@@ -159,22 +157,19 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
     </p>
 
     <!-- Color Editor (when editing) -->
-    <div v-if="editingIndex !== null && editingColor" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+    <div v-if="editingIndex !== null && editingColor" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg space-y-2">
+      <UColorPicker
+        :model-value="editingColor.hex"
+        size="sm"
+        @update:model-value="(val: string | undefined) => val && emit('setColor', editingIndex!, val)"
+      />
       <div class="flex items-center gap-2">
-        <input
-          type="color"
-          :value="editingColor.hex"
-          class="w-10 h-10 rounded cursor-pointer border-0"
-          @input="handleColorChange($event, editingIndex!)"
+        <UInput
+          :model-value="editingColor.hex"
+          size="xs"
+          class="flex-1 font-mono"
+          @update:model-value="(val: string) => emit('setColor', editingIndex!, val)"
         />
-        <div class="flex-1">
-          <input
-            type="text"
-            :value="editingColor.hex"
-            class="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 font-mono"
-            @input="handleColorChange($event, editingIndex!)"
-          />
-        </div>
         <UButton
           icon="i-lucide-check"
           color="primary"
