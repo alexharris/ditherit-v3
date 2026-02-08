@@ -341,6 +341,20 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
               :items="BAYER_SIZES"
               class="w-full"
             />
+
+            <!-- Serpentine (for diffusion mode) -->
+            <HelpTooltip v-if="ditherMode === 'diffusion'">
+              <template #label>
+                <UCheckbox
+                  v-model="serpentine"
+                  label="Serpentine"
+                />
+              </template>
+              <template #help>
+                This determines if the dithering just goes left to right, top to
+                bottom, or does a snake wiggle.
+              </template>
+            </HelpTooltip>
           </div>
 
           <USeparator />
@@ -393,60 +407,26 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
 
           <USeparator />
 
-          <!-- Pixeliness -->
-          <div class="px-4 py-4">
-            <HelpTooltip>
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Pixeliness</span>
-              </template>
-              <template #help>
-                Makes images more "pixely" by increasing the block size.
-                Higher values create a more retro, chunky look.
-              </template>
-              <div class="mt-2">
-                <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
-                <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
-              </div>
-            </HelpTooltip>
-          </div>
-
-          <USeparator />
-
-          <!-- Advanced -->
-          <div class="px-4 pt-4">
-            <UCollapsible>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                block
-                class="justify-between px-0"
-              >
-                <span class="text-sm font-medium text-highlighted">Advanced</span>
-                <UIcon
-                  name="i-lucide-chevron-down"
-                  class="size-4 text-dimmed transition-transform [[data-state=open]>&]:rotate-180"
-                />
-              </UButton>
-              <template #content>
-                <div class="space-y-3 pt-2">
-                  <HelpTooltip v-if="ditherMode === 'diffusion'">
-                    <template #label>
-                      <span class="text-sm font-medium text-highlighted">Serpentine</span>
-                    </template>
-                    <template #help>
-                      This determines if the dithering just goes left to right, top to
-                      bottom, or does a snake wiggle.
-                    </template>
-                    <UCheckbox
-                      v-model="serpentine"
-                      label="Enable"
-                      class="mt-2"
-                    />
-                  </HelpTooltip>
+          <!-- Pixeliness (hidden for now, feature preserved) -->
+          <template v-if="false">
+            <div class="px-4 py-4">
+              <HelpTooltip>
+                <template #label>
+                  <span class="text-sm font-medium text-highlighted">Pixeliness</span>
+                </template>
+                <template #help>
+                  Makes images more "pixely" by increasing the block size.
+                  Higher values create a more retro, chunky look.
+                </template>
+                <div class="mt-2">
+                  <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
+                  <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
                 </div>
-              </template>
-            </UCollapsible>
-          </div>
+              </HelpTooltip>
+            </div>
+            <USeparator />
+          </template>
+
       </div>
 
       <!-- Sidebar Footer -->
