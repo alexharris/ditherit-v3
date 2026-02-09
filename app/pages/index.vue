@@ -58,9 +58,19 @@ const toast = useToast()
 const fileInputRef = ref<HTMLInputElement>()
 const canvasRef = ref<HTMLCanvasElement>()
 
+const isDefaultImage = computed(() => images.value.length === 1 && images.value[0].fileName === 'quantfrog.png')
+
 const isDragging = ref(false)
 const isIntro = ref(true)
 const showCompare = ref(false)
+const drawerMode = ref(false)
+const drawerPalette = ref(false)
+const drawerScale = ref(false)
+
+const ditherModes = [
+  { label: 'Error Diffusion', value: 'diffusion' },
+  { label: 'Bayer (Ordered)', value: 'bayer' }
+]
 
 // Image sizing state (managed by ImageSizeControl, synced via events)
 const originalWidth = ref(0)
@@ -72,11 +82,6 @@ function handleSizeChange(payload: { width: number | undefined; valid: boolean }
   sizeWidth.value = payload.width
   sizeValid.value = payload.valid
 }
-
-const ditherModes = [
-  { label: 'Error Diffusion', value: 'diffusion' },
-  { label: 'Bayer (Ordered)', value: 'bayer' }
-]
 
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
@@ -223,6 +228,7 @@ onMounted(() => {
 // Reload the frog when the last image is removed
 watch(hasImages, (has) => {
   if (!has) {
+    isIntro.value = true
     addImageFromUrl(defaultImageUrl, 'quantfrog.png')
   }
 })
@@ -303,131 +309,110 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
     <!-- Top Bar -->
     <AppHeader />
 
-    <!-- Body below top bar -->
-    <div class="flex flex-1 overflow-hidden">
+    <!-- Mobile Drawers -->
+    <UDrawer v-model:open="drawerMode" title="Dither Mode">
+      <template #body>
+        <div class="space-y-4 px-4 py-4">
+          <HelpTooltip>
+            <template #label>
+              <span class="text-sm font-medium text-highlighted">Dither Mode</span>
+            </template>
+            <template #help>
+              These methods are different ways to spread around the quantization
+              error introduced by reducing an image's color palette. They look quite
+              different, try them out!
+            </template>
+            <URadioGroup v-model="ditherMode" :items="ditherModes" class="mt-2" />
+          </HelpTooltip>
 
-    <!-- Sidebar -->
-    <aside
-      class="flex w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
-    >
-      <!-- Sidebar Content -->
-      <div class="flex-1 overflow-y-auto py-4">
-          <!-- Dither Mode -->
-          <div class="space-y-4 px-4 pb-4">
-            <HelpTooltip>
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Dither Mode</span>
-              </template>
-              <template #help>
-                These methods are different ways to spread around the quantization
-                error introduced by reducing an image's color palette. They look quite
-                different, try them out!
-              </template>
-              <URadioGroup v-model="ditherMode" :items="ditherModes" class="mt-2" />
-            </HelpTooltip>
+          <USelect
+            v-if="ditherMode === 'diffusion'"
+            v-model="algorithm"
+            :items="DIFFUSION_ALGORITHMS"
+            class="w-full"
+          />
 
-            <!-- Algorithm (for diffusion mode) -->
-            <USelect
-              v-if="ditherMode === 'diffusion'"
-              v-model="algorithm"
-              :items="DIFFUSION_ALGORITHMS"
-              class="w-full"
-            />
+          <USelect
+            v-if="ditherMode === 'bayer'"
+            v-model="bayerSize"
+            :items="BAYER_SIZES"
+            class="w-full"
+          />
 
-            <!-- Matrix Size (for bayer mode) -->
-            <USelect
-              v-if="ditherMode === 'bayer'"
-              v-model="bayerSize"
-              :items="BAYER_SIZES"
-              class="w-full"
-            />
-
-            <!-- Serpentine (for diffusion mode) -->
-            <HelpTooltip v-if="ditherMode === 'diffusion'">
-              <template #label>
-                <UCheckbox
-                  v-model="serpentine"
-                  label="Serpentine"
-                />
-              </template>
-              <template #help>
-                This determines if the dithering just goes left to right, top to
-                bottom, or does a snake wiggle.
-              </template>
-            </HelpTooltip>
-          </div>
-
-          <USeparator />
-
-          <!-- Palette Editor -->
-          <div class="px-4 py-4">
-            <HelpTooltip>
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Palette</span>
-              </template>
-              <template #help>
-                The color palette used for dithering. Choose a preset, edit individual
-                colors, or create and save your own custom palettes.
-              </template>
-              <PaletteEditor
-                :palette="paletteColors"
-                :custom-palettes="customPalettes"
-                :selected-preset="selectedPreset"
-                :is-custom-palette-selected="isCustomPaletteSelected"
-                class="mt-2"
-                @select-preset="selectPreset"
-                @set-color="setColorAt"
-                @add-color="addColor"
-                @remove-color="removeColor"
-                @save-custom="saveCurrentPalette"
-                @delete-custom="deleteCustomPalette"
-                @import="importFromJson"
+          <HelpTooltip v-if="ditherMode === 'diffusion'">
+            <template #label>
+              <UCheckbox
+                v-model="serpentine"
+                label="Serpentine"
               />
-            </HelpTooltip>
-          </div>
+            </template>
+            <template #help>
+              This determines if the dithering just goes left to right, top to
+              bottom, or does a snake wiggle.
+            </template>
+          </HelpTooltip>
+        </div>
+      </template>
+    </UDrawer>
 
-          <USeparator />
+    <UDrawer v-model:open="drawerPalette" title="Palette">
+      <template #body>
+        <div class="px-4 py-4">
+          <HelpTooltip>
+            <template #label>
+              <span class="text-sm font-medium text-highlighted">Palette</span>
+            </template>
+            <template #help>
+              The color palette used for dithering. Choose a preset, edit individual
+              colors, or create and save your own custom palettes.
+            </template>
+            <PaletteEditor
+              :palette="paletteColors"
+              :custom-palettes="customPalettes"
+              :selected-preset="selectedPreset"
+              :is-custom-palette-selected="isCustomPaletteSelected"
+              class="mt-2"
+              @select-preset="selectPreset"
+              @set-color="setColorAt"
+              @add-color="addColor"
+              @remove-color="removeColor"
+              @save-custom="saveCurrentPalette"
+              @delete-custom="deleteCustomPalette"
+              @import="importFromJson"
+            />
+          </HelpTooltip>
+        </div>
+      </template>
+    </UDrawer>
 
-          <!-- Pixel Scale -->
-          <div class="px-4 py-4">
-            <HelpTooltip>
-              <template #label>
-                <span class="text-sm font-medium text-highlighted">Pixel Scale</span>
-              </template>
-              <template #help>
-                Dithers at a reduced resolution then upscales with nearest-neighbor
-                interpolation, producing coherent chunky pixels with uniform color blocks.
-              </template>
-              <div class="mt-2">
-                <USlider v-model="pixelScale" :min="1" :max="25" :step="1" />
-                <span class="text-xs text-gray-500">{{ pixelScale }}x</span>
-              </div>
-            </HelpTooltip>
-          </div>
-
-          <USeparator />
-
-          <!-- Pixeliness (hidden for now, feature preserved) -->
-          <template v-if="false">
-            <div class="px-4 py-4">
-              <HelpTooltip>
-                <template #label>
-                  <span class="text-sm font-medium text-highlighted">Pixeliness</span>
-                </template>
-                <template #help>
-                  Makes images more "pixely" by increasing the block size.
-                  Higher values create a more retro, chunky look.
-                </template>
-                <div class="mt-2">
-                  <USlider v-model="pixeliness" :min="1" :max="16" :step="1" />
-                  <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
-                </div>
-              </HelpTooltip>
+    <UDrawer v-model:open="drawerScale" title="Pixel Scale">
+      <template #body>
+        <div class="px-4 py-4">
+          <HelpTooltip>
+            <template #label>
+              <span class="text-sm font-medium text-highlighted">Pixel Scale</span>
+            </template>
+            <template #help>
+              Dithers at a reduced resolution then upscales with nearest-neighbor
+              interpolation, producing coherent chunky pixels with uniform color blocks.
+            </template>
+            <div class="mt-2">
+              <USlider v-model="pixelScale" :min="1" :max="25" :step="1" />
+              <span class="text-xs text-gray-500">{{ pixelScale }}x</span>
             </div>
-            <USeparator />
-          </template>
+          </HelpTooltip>
+        </div>
+      </template>
+    </UDrawer>
 
-      </div>
+    <!-- Body below top bar -->
+    <div class="flex flex-1 flex-col lg:flex-row overflow-hidden">
+
+    <!-- Sidebar (desktop only) -->
+    <aside
+      class="hidden lg:flex w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+    >
+      <SidebarContent />
 
       <!-- Sidebar Footer -->
       <div
@@ -463,11 +448,11 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
 
           <!-- Preview Area -->
           <div
-            class="relative flex flex-1 flex-col items-center justify-center overflow-auto p-8 [scrollbar-gutter:stable]"
-            :class="isIntro ? 'border-2 border-dashed border-gray-300 m-4 rounded-lg dark:border-gray-600' : ''"
+            class="relative flex flex-1 flex-col items-center justify-center overflow-auto p-3 lg:p-8 [scrollbar-gutter:stable]"
+            :class="isIntro ? 'border-2 border-dashed border-gray-300 m-2 lg:m-4 dark:border-gray-600' : ''"
           >
             <!-- Intro upload hint -->
-            <div v-if="isIntro" class="absolute left-0 right-0 top-24 flex items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+            <div v-if="isIntro" class="absolute left-0 right-0 top-16 lg:top-24 flex items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
               <span>Drop your own images here or</span>
               <UButton
                 icon="i-lucide-upload"
@@ -523,7 +508,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
 
               <!-- Image toolbar -->
               <div
-                class="mt-3 flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                class="mt-3 flex flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
               >
                 <ImageSizeControl
                   v-if="originalWidth > 0"
@@ -534,38 +519,42 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                 <div class="flex-1" />
                 <UButton
                   icon="i-lucide-columns-2"
-                  label="Compare"
                   :color="showCompare ? 'primary' : 'neutral'"
                   :variant="showCompare ? 'soft' : 'ghost'"
                   size="xs"
                   :disabled="!selectedImage.ditheredDataUrl"
                   @click="showCompare = !showCompare"
-                />
+                >
+                  <span class="hidden lg:inline">Compare</span>
+                </UButton>
                 <UButton
                   icon="i-lucide-download"
-                  label="Download"
                   color="neutral"
                   variant="ghost"
                   size="xs"
                   :disabled="!selectedImage.ditheredDataUrl"
                   @click="downloadSingleImage"
-                />
+                >
+                  <span class="hidden lg:inline">Download</span>
+                </UButton>
                 <UButton
+                  v-if="!isDefaultImage"
                   icon="i-lucide-trash-2"
-                  label="Remove"
                   color="error"
                   variant="ghost"
                   size="xs"
                   @click="removeImage(selectedImage.id)"
-                />
+                >
+                  <span class="hidden lg:inline">Remove</span>
+                </UButton>
               </div>
 
             </div>
           </div>
         </main>
 
-        <!-- Right Sidebar (always reserves space to prevent layout shift) -->
-        <aside class="w-48 shrink-0 overflow-y-auto p-4">
+        <!-- Right Sidebar (desktop only) -->
+        <aside class="hidden lg:block w-48 shrink-0 overflow-y-auto p-4">
           <div
             v-if="selectedImage"
             class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90"
@@ -582,50 +571,81 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
 
       <!-- Bottom Bar (thumbnails + actions) -->
       <footer
-        class="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950"
+        class="flex shrink-0 flex-col lg:flex-row items-stretch lg:items-center gap-2 border-t border-gray-200 bg-white px-3 py-3 lg:px-4 lg:py-4 dark:border-gray-800 dark:bg-gray-950"
       >
-        <!-- Image Thumbnails (left) -->
-        <ImageThumbnailStrip
-          v-if="hasImages"
-          :images="images"
-          :selected-id="selectedImage?.id"
-          @select="selectImage"
-          @remove="removeImage"
-          @add="triggerFileInput"
-        />
-        <div v-else class="flex-1" />
-
-        <!-- Action buttons (right) -->
-        <div class="flex shrink-0 items-center gap-2">
+        <!-- Image Thumbnails + mobile download -->
+        <div v-if="hasImages" class="flex min-w-0 items-center justify-between gap-2">
+          <div
+            class="flex min-w-0 items-center gap-2 rounded-lg bg-gray-100 px-2 py-2 ring-1 ring-gray-200 ring-inset dark:bg-gray-900 dark:ring-gray-800"
+          >
+            <ImageThumbnailStrip
+              :images="images"
+              :selected-id="selectedImage?.id"
+              @select="selectImage"
+              @remove="removeImage"
+              @add="triggerFileInput"
+            />
+            <button
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded border-2 border-dashed border-gray-300 text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500 dark:border-gray-600 dark:hover:border-gray-500"
+              @click="triggerFileInput"
+            >
+              <UIcon name="i-lucide-plus" class="size-5" />
+            </button>
+          </div>
           <UButton
-            icon="i-lucide-upload"
-            label="Upload"
-            color="neutral"
-            variant="ghost"
+            icon="i-lucide-download"
+            color="primary"
+            variant="outline"
             size="sm"
-            @click="triggerFileInput"
+            class="lg:hidden shrink-0"
+            :loading="isDownloadingAll"
+            :disabled="!selectedImage?.ditheredDataUrl"
+            @click="handleDownload"
           />
+        </div>
+        <div class="hidden lg:block flex-1" />
+
+        <!-- Action buttons (desktop only) -->
+        <div class="hidden lg:flex shrink-0 items-center justify-end gap-2">
           <UButton
-            v-if="images.length > 0"
+            v-if="images.length > 0 && !isDefaultImage"
             icon="i-lucide-trash-2"
-            label="Clear All"
             color="neutral"
             variant="ghost"
             size="sm"
             @click="clearAll"
-          />
+          >
+            <span>Clear All</span>
+          </UButton>
           <UButton
             icon="i-lucide-download"
-            :label="images.length > 1 ? 'Download All' : 'Download'"
             color="primary"
             variant="outline"
             size="sm"
             :loading="isDownloadingAll"
             :disabled="!selectedImage?.ditheredDataUrl"
             @click="handleDownload"
-          />
+          >
+            <span>{{ images.length > 1 ? 'Download All' : 'Download' }}</span>
+          </UButton>
         </div>
       </footer>
+
+      <!-- Mobile Bottom Toolbar -->
+      <div class="flex lg:hidden shrink-0 items-center justify-around border-t border-gray-200 bg-white py-2 dark:border-gray-800 dark:bg-gray-950">
+        <button class="flex flex-col items-center gap-1 text-xs text-gray-600 dark:text-gray-400" @click="drawerMode = true">
+          <UIcon name="i-lucide-grid-2x2" class="size-6" />
+          <span>Mode</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-xs text-gray-600 dark:text-gray-400" @click="drawerPalette = true">
+          <UIcon name="i-lucide-palette" class="size-6" />
+          <span>Palette</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-xs text-gray-600 dark:text-gray-400" @click="drawerScale = true">
+          <UIcon name="i-lucide-maximize" class="size-6" />
+          <span>Scale</span>
+        </button>
+      </div>
     </div>
 
     </div>

@@ -135,17 +135,18 @@ export const PRESET_PALETTES: PresetPalette[] = [
   }
 ]
 
-export function usePalette() {
-  // State
-  const paletteColors = ref<PaletteColor[]>([])
-  const originalPalette = ref<PaletteColor[]>([])
-  const customPalettes = ref<CustomPalette[]>([])
-  const selectedPreset = ref<string>('original')
-  const editingColorIndex = ref<number | null>(null)
+// Module-level state — shared across all callers
+const paletteColors = ref<PaletteColor[]>([])
+const originalPalette = ref<PaletteColor[]>([])
+const customPalettes = ref<CustomPalette[]>([])
+const selectedPreset = ref<string>('original')
+const editingColorIndex = ref<number | null>(null)
 
-  // Computed
-  const isCustomSelected = computed(() => selectedPreset.value === 'custom')
-  const isCustomPaletteSelected = computed(() => selectedPreset.value.startsWith('custom-'))
+// Module-level computed — shared across all callers
+const isCustomSelected = computed(() => selectedPreset.value === 'custom')
+const isCustomPaletteSelected = computed(() => selectedPreset.value.startsWith('custom-'))
+
+export function usePalette() {
 
   const paletteAsRgb = computed(() => {
     return paletteColors.value.map(c => hexToRgb(c.hex)).filter((c): c is number[] => c !== null)

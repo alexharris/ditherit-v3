@@ -15,10 +15,12 @@ const emit = defineEmits<{
 const scrollContainer = ref<HTMLElement>()
 const canScrollLeft = ref(false)
 const canScrollRight = ref(false)
+const isScrollable = ref(false)
 
 function updateScrollState() {
   const el = scrollContainer.value
   if (!el) return
+  isScrollable.value = el.scrollWidth > el.clientWidth
   canScrollLeft.value = el.scrollLeft > 0
   canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
 }
@@ -33,20 +35,31 @@ watch(() => props.images.length, () => {
   nextTick(updateScrollState)
 })
 
+let resizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   nextTick(updateScrollState)
+  if (scrollContainer.value) {
+    resizeObserver = new ResizeObserver(updateScrollState)
+    resizeObserver.observe(scrollContainer.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
 })
 </script>
 
 <template>
   <div class="relative flex min-w-0 flex-1 items-center">
     <UButton
+      v-if="isScrollable"
       v-show="canScrollLeft"
       icon="i-lucide-chevron-left"
       color="neutral"
       variant="ghost"
       size="xs"
-      class="shrink-0"
+      class="hidden lg:flex shrink-0"
       @click="scroll('left')"
     />
     <div
@@ -78,21 +91,15 @@ onMounted(() => {
           <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-red-500" />
         </div>
       </div>
-      <!-- Add more button -->
-      <button
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded border-2 border-dashed border-gray-300 text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500 dark:border-gray-600 dark:hover:border-gray-500"
-        @click="emit('add')"
-      >
-        <UIcon name="i-lucide-plus" class="size-5" />
-      </button>
     </div>
     <UButton
+      v-if="isScrollable"
       v-show="canScrollRight"
       icon="i-lucide-chevron-right"
       color="neutral"
       variant="ghost"
       size="xs"
-      class="shrink-0"
+      class="hidden lg:flex shrink-0"
       @click="scroll('right')"
     />
   </div>

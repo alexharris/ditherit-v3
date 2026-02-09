@@ -122,7 +122,7 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
       <div v-for="(color, i) in palette" :key="i" class="relative">
         <button
           type="button"
-          class="size-7 rounded-full shadow-sm shadow-black/30 cursor-pointer transition-all"
+          class="size-9 lg:size-7 rounded-full shadow-sm shadow-black/30 cursor-pointer transition-all"
           :class="[
             editingIndex === i
               ? 'ring-2 ring-red-500/30 scale-110'
@@ -136,7 +136,7 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
         <button
           v-if="palette.length > 2"
           type="button"
-          class="absolute -right-1 -top-1 size-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+          class="absolute -right-1 -top-1 size-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 hover:opacity-100 touch-visible transition-opacity"
           :class="{ 'opacity-100': editingIndex === i }"
           @click.stop="handleRemoveColor(i)"
         >
@@ -146,7 +146,7 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
       <!-- Add color button -->
       <button
         type="button"
-        class="size-7 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors"
+        class="size-9 lg:size-7 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors"
         @click="handleAddColor"
       >
         <UIcon name="i-lucide-plus" class="size-4" />

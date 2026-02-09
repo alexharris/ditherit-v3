@@ -13,20 +13,22 @@ export interface GalleryImage {
   isProcessing: boolean
 }
 
+// Module-level state — shared across all callers
+const images = ref<GalleryImage[]>([])
+const selectedId = ref<string | null>(null)
+const isDownloadingAll = ref(false)
+
+const selectedImage = computed(() =>
+  images.value.find(img => img.id === selectedId.value) || null
+)
+
+const hasImages = computed(() => images.value.length > 0)
+
+const processedCount = computed(() =>
+  images.value.filter(img => img.ditheredDataUrl !== null).length
+)
+
 export function useImageGallery() {
-  const images = ref<GalleryImage[]>([])
-  const selectedId = ref<string | null>(null)
-  const isDownloadingAll = ref(false)
-
-  const selectedImage = computed(() =>
-    images.value.find(img => img.id === selectedId.value) || null
-  )
-
-  const hasImages = computed(() => images.value.length > 0)
-
-  const processedCount = computed(() =>
-    images.value.filter(img => img.ditheredDataUrl !== null).length
-  )
 
   function generateId(): string {
     return `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`

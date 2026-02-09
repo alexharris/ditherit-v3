@@ -64,22 +64,24 @@ export function evictImageCache(src: string) {
   imageCache.delete(src)
 }
 
+// Module-level state — shared across all callers
+const isProcessing = ref(false)
+const ditherMode = ref<DitherMode>('diffusion')
+const algorithm = ref('FloydSteinberg')
+const serpentine = ref(false)
+const pixeliness = ref(1)
+const pixelScale = ref(1)
+const bayerSize = ref<BayerSize>(4)
+const palette = ref<number[][]>([])
+
+// RgbQuant instance cache — reused when only algorithm/serpentine changes
+let cachedQuant: any = null
+let cachedPaletteKey = ''
+
+// Bayer Web Worker (lazily created)
+let worker: Worker | null = null
+
 export function useDithering() {
-  const isProcessing = ref(false)
-  const ditherMode = ref<DitherMode>('diffusion')
-  const algorithm = ref('FloydSteinberg')
-  const serpentine = ref(false)
-  const pixeliness = ref(1)
-  const pixelScale = ref(1)
-  const bayerSize = ref<BayerSize>(4)
-  const palette = ref<number[][]>([])
-
-  // RgbQuant instance cache — reused when only algorithm/serpentine changes
-  let cachedQuant: any = null
-  let cachedPaletteKey = ''
-
-  // Bayer Web Worker (lazily created)
-  let worker: Worker | null = null
 
   function getWorker(): Worker {
     if (!worker) {

@@ -15,6 +15,12 @@
   background-size: 20px 20px;
 }
 
+@media (hover: none) {
+  .touch-visible {
+    opacity: 1 !important;
+  }
+}
+
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
