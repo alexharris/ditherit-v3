@@ -310,7 +310,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
     <AppHeader />
 
     <!-- Mobile Drawers -->
-    <UDrawer v-model:open="drawerMode" title="Dither Mode">
+    <UDrawer v-model:open="drawerMode" :overlay="false">
       <template #body>
         <div class="space-y-4 px-4 py-4">
           <HelpTooltip>
@@ -355,7 +355,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
       </template>
     </UDrawer>
 
-    <UDrawer v-model:open="drawerPalette" title="Palette">
+    <UDrawer v-model:open="drawerPalette" :overlay="false">
       <template #body>
         <div class="px-4 py-4">
           <HelpTooltip>
@@ -385,7 +385,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
       </template>
     </UDrawer>
 
-    <UDrawer v-model:open="drawerScale" title="Pixel Scale">
+    <UDrawer v-model:open="drawerScale" :overlay="false">
       <template #body>
         <div class="px-4 py-4">
           <HelpTooltip>
