@@ -292,7 +292,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-gray-100 dark:bg-gray-900 bg-grid">
+  <div class="flex h-dvh flex-col bg-gray-100 dark:bg-gray-900 bg-grid">
     <!-- Hidden file input (multiple) -->
     <input
       ref="fileInputRef"
@@ -485,7 +485,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                     v-show="!showCompare"
                     :src="selectedImage.ditheredDataUrl"
                     :alt="selectedImage.fileName"
-                    class="max-h-[60vh] max-w-full"
+                    class="max-h-[60vh] max-w-full no-touch-callout"
                   />
                 </template>
 
@@ -494,7 +494,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                   v-else
                   :src="selectedImage.originalSrc"
                   :alt="selectedImage.fileName"
-                  class="max-h-[60vh] max-w-full"
+                  class="max-h-[60vh] max-w-full no-touch-callout"
                 />
 
                 <!-- Processing overlay -->
@@ -632,7 +632,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
       </footer>
 
       <!-- Mobile Bottom Toolbar -->
-      <div class="flex lg:hidden shrink-0 items-center justify-around border-t border-gray-200 bg-white py-2 dark:border-gray-800 dark:bg-gray-950">
+      <div class="flex lg:hidden shrink-0 items-center justify-around border-t border-gray-200 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-gray-800 dark:bg-gray-950">
         <button class="flex flex-col items-center gap-1 text-xs text-gray-600 dark:text-gray-400" @click="drawerMode = true">
           <UIcon name="i-lucide-grid-2x2" class="size-6" />
           <span>Mode</span>

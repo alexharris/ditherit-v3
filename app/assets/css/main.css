@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Prevent pull-to-refresh and overscroll bounce on mobile */
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Prevent long-press context menu on dithered/original images */
+.no-touch-callout {
+  -webkit-touch-callout: none;
+}
+
 .bg-grid {
   background-image:
     linear-gradient(to right, rgb(0 0 0 / 0.05) 1px, transparent 1px),

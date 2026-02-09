@@ -8,7 +8,7 @@ const emit = defineEmits<{
   change: [payload: { width: number | undefined, valid: boolean }]
 }>()
 
-const MAX_WIDTH = 4000
+const MAX_WIDTH = 5000
 const useCustomSize = ref(false)
 const customWidth = ref(0)
 const customWidthInput = ref(0)

@@ -11,7 +11,7 @@ const emit = defineEmits<{
   resize: [payload: { width: number }]
 }>()
 
-const maxW = computed(() => props.maxWidth ?? 4000)
+const maxW = computed(() => props.maxWidth ?? 5000)
 
 const containerRef = ref<HTMLElement>()
 const isDragging = ref(false)
