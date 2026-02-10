@@ -5,5 +5,6 @@
     <SidebarPalette />
     <USeparator />
     <SidebarPixelScale />
+    <SidebarFeedback />
   </div>
 </template>
