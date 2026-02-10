@@ -1,4 +1,11 @@
 <template>
+  <!-- Hidden form for Netlify detection at build time -->
+  <form name="contact" netlify netlify-honeypot="bot-field" hidden>
+    <input type="text" name="name" />
+    <input type="email" name="email" />
+    <textarea name="message"></textarea>
+  </form>
+
   <UModal>
     <div class="m-4 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg">
       <h2 class="pb-2 font-bold">📋 Improve Dither it!</h2>
