@@ -299,6 +299,10 @@ const footerJpgLabel = computed(() => {
   return files.length > 0 ? `JPG ZIP (${formatBytes(estimateZipSize(files))})` : 'JPG'
 })
 
+const footerSvgLabel = computed(() => {
+  return images.value.length <= 1 ? 'SVG' : 'SVG ZIP'
+})
+
 async function convertBlobToFormat(pngBlob: Blob, mimeType: string, quality = 0.92): Promise<Blob> {
   const img = new Image()
   const url = URL.createObjectURL(pngBlob)
@@ -320,11 +324,63 @@ function convertBlobToJpeg(pngBlob: Blob, quality = 0.92): Promise<Blob> {
   return convertBlobToFormat(pngBlob, 'image/jpeg', quality)
 }
 
-async function downloadSingleImage(format: 'png' | 'jpg') {
+async function generateSvgBlob(pngBlob: Blob): Promise<Blob> {
+  const img = new Image()
+  const url = URL.createObjectURL(pngBlob)
+  await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; img.src = url })
+  URL.revokeObjectURL(url)
+
+  const canvas = document.createElement('canvas')
+  const w = img.width
+  const h = img.height
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0)
+  const { data } = ctx.getImageData(0, 0, w, h)
+
+  const parts: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">`]
+
+  for (let y = 0; y < h; y++) {
+    let x = 0
+    while (x < w) {
+      const i = (y * w + x) * 4
+      const a = data[i + 3]!
+      if (a === 0) { x++; continue }
+      const r = data[i]!, g = data[i + 1]!, b = data[i + 2]!
+
+      // Run-length encode: merge adjacent same-color pixels into wider rects
+      let runLen = 1
+      while (x + runLen < w) {
+        const j = (y * w + x + runLen) * 4
+        if (data[j] === r && data[j + 1] === g && data[j + 2] === b && data[j + 3] === a) {
+          runLen++
+        } else {
+          break
+        }
+      }
+
+      const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+      const opacity = a < 255 ? ` fill-opacity="${(a / 255).toFixed(2)}"` : ''
+      parts.push(`<rect x="${x}" y="${y}" width="${runLen}" height="1" fill="${hex}"${opacity}/>`)
+      x += runLen
+    }
+  }
+
+  parts.push('</svg>')
+  return new Blob([parts.join('')], { type: 'image/svg+xml' })
+}
+
+async function downloadSingleImage(format: 'png' | 'jpg' | 'svg') {
   if (!selectedImage.value?.ditheredBlob) return
-  const blob = format === 'jpg'
-    ? await convertBlobToJpeg(selectedImage.value.ditheredBlob)
-    : selectedImage.value.ditheredBlob
+  let blob: Blob
+  if (format === 'jpg') {
+    blob = await convertBlobToJpeg(selectedImage.value.ditheredBlob)
+  } else if (format === 'svg') {
+    blob = await generateSvgBlob(selectedImage.value.ditheredBlob)
+  } else {
+    blob = selectedImage.value.ditheredBlob
+  }
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   const baseName = selectedImage.value.fileName.replace(/\.[^.]+$/, '')
@@ -334,9 +390,12 @@ async function downloadSingleImage(format: 'png' | 'jpg') {
   URL.revokeObjectURL(url)
 }
 
-async function handleDownload(format: 'png' | 'jpg') {
+async function handleDownload(format: 'png' | 'jpg' | 'svg') {
   if (images.value.length > 1) {
-    await downloadAll(processImageForDither, format, convertBlobToJpeg)
+    const converter = format === 'jpg' ? convertBlobToJpeg
+      : format === 'svg' ? generateSvgBlob
+        : undefined
+    await downloadAll(processImageForDither, format, converter)
   } else {
     await downloadSingleImage(format)
   }
@@ -588,6 +647,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                     <div class="flex flex-col gap-1 p-2">
                       <UButton :label="pngSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="downloadSingleImage('png'); close()" />
                       <UButton :label="jpgSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="downloadSingleImage('jpg'); close()" />
+                      <UButton label="SVG" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="downloadSingleImage('svg'); close()" />
                     </div>
                   </template>
                 </UPopover>
@@ -659,6 +719,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
               <div class="flex flex-col gap-1 p-2">
                 <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('png'); close()" />
                 <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
+                <UButton :label="footerSvgLabel" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('svg'); close()" />
               </div>
             </template>
           </UPopover>
@@ -692,6 +753,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
               <div class="flex flex-col gap-1 p-2">
                 <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('png'); close()" />
                 <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
+                <UButton :label="footerSvgLabel" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('svg'); close()" />
               </div>
             </template>
           </UPopover>

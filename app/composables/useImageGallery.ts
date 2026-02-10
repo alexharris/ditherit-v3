@@ -190,8 +190,8 @@ export function useImageGallery() {
 
   async function downloadAll(
     processImage: (image: GalleryImage) => Promise<{ url: string; blob: Blob }>,
-    format: 'png' | 'jpg' = 'png',
-    convertToJpeg?: (blob: Blob) => Promise<Blob>
+    format: string = 'png',
+    convertBlob?: (blob: Blob) => Promise<Blob>
   ) {
     if (images.value.length === 0) return
 
@@ -223,8 +223,8 @@ export function useImageGallery() {
         }
 
         if (blob) {
-          if (format === 'jpg' && convertToJpeg) {
-            blob = await convertToJpeg(blob)
+          if (convertBlob) {
+            blob = await convertBlob(blob)
           }
           const baseName = image.fileName.replace(/\.[^.]+$/, '')
           zip.file(`${baseName}-dithered.${format}`, blob)
