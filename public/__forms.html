@@ -1,10 +1,12 @@
 <html>
 <head></head>
 <body>
-  <form name="contact" data-netlify="true" hidden>
+  <form name="contact" data-netlify="true" netlify-honeypot="bot-field" hidden>
     <input type="hidden" name="form-name" value="contact" />
+    <input name="bot-field" />
+    <input name="name" type="text" />
     <input name="email" type="email" />
-    <input name="message" type="text" />
+    <textarea name="message"></textarea>
   </form>
 </body>
 </html>

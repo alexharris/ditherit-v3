@@ -7,11 +7,12 @@ async function handleSubmit(e: Event) {
   const form = e.target as HTMLFormElement
   isSubmitting.value = true
   try {
-    await fetch('/', {
+    const response = await fetch('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(new FormData(form) as any).toString()
     })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     toast.add({
       title: 'Message sent!',
       description: 'Thanks for your feedback.',
@@ -32,13 +33,6 @@ async function handleSubmit(e: Event) {
 </script>
 
 <template>
-  <!-- Hidden form for Netlify detection at build time -->
-  <form name="contact" netlify netlify-honeypot="bot-field" hidden>
-    <input type="text" name="name" />
-    <input type="email" name="email" />
-    <textarea name="message"></textarea>
-  </form>
-
   <UModal v-model:open="isModalOpen">
     <div class="m-4 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg">
       <h2 class="pb-2 font-bold">📋 Improve Dither it!</h2>
