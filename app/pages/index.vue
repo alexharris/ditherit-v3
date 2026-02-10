@@ -183,22 +183,162 @@ function debouncedDither() {
   ditherTimeout = setTimeout(() => handleDither(), 300)
 }
 
-function downloadSingleImage() {
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
+}
+
+const jpgSizeMap = reactive(new Map<string, number>())
+const jpgBlobTracker = new Map<string, Blob>()
+
+watch(
+  () => images.value.map(img => ({ id: img.id, blob: img.ditheredBlob })),
+  async (entries) => {
+    // Clean up removed/cleared entries
+    for (const key of [...jpgSizeMap.keys()]) {
+      if (!entries.some(e => e.id === key && e.blob)) {
+        jpgSizeMap.delete(key)
+        jpgBlobTracker.delete(key)
+      }
+    }
+    // Compute JPG size for new/changed blobs
+    for (const { id, blob } of entries) {
+      if (!blob || jpgBlobTracker.get(id) === blob) continue
+      jpgBlobTracker.set(id, blob)
+      const jpgBlob = await convertBlobToJpeg(blob)
+      if (jpgBlobTracker.get(id) === blob) {
+        jpgSizeMap.set(id, jpgBlob.size)
+      }
+    }
+  },
+  { immediate: true }
+)
+
+// Track dithered size in the original file's format (for fair scorecard comparison)
+const CANVAS_EXPORT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
+const nativeFormatSizeMap = reactive(new Map<string, number>())
+const nativeFormatBlobTracker = new Map<string, Blob>()
+
+watch(
+  () => images.value.map(img => ({ id: img.id, blob: img.ditheredBlob, mime: img.originalMimeType })),
+  async (entries) => {
+    for (const key of [...nativeFormatSizeMap.keys()]) {
+      if (!entries.some(e => e.id === key && e.blob)) {
+        nativeFormatSizeMap.delete(key)
+        nativeFormatBlobTracker.delete(key)
+      }
+    }
+    for (const { id, blob, mime } of entries) {
+      if (!blob || nativeFormatBlobTracker.get(id) === blob) continue
+      nativeFormatBlobTracker.set(id, blob)
+
+      if (mime === 'image/png' || !CANVAS_EXPORT_TYPES.has(mime)) {
+        // PNG or unsupported format — dithered blob is already PNG
+        if (nativeFormatBlobTracker.get(id) === blob) {
+          nativeFormatSizeMap.set(id, blob.size)
+        }
+      } else {
+        // JPEG or WebP — convert to measure size
+        const converted = await convertBlobToFormat(blob, mime)
+        if (nativeFormatBlobTracker.get(id) === blob) {
+          nativeFormatSizeMap.set(id, converted.size)
+        }
+      }
+    }
+  },
+  { immediate: true }
+)
+
+const scorecardDitheredSize = computed(() => {
+  const img = selectedImage.value
+  if (!img?.ditheredFileSize) return null
+  return nativeFormatSizeMap.get(img.id) ?? img.ditheredFileSize
+})
+
+const pngSizeLabel = computed(() => {
+  const size = selectedImage.value?.ditheredBlob?.size
+  return size ? `PNG (${formatBytes(size)})` : 'PNG'
+})
+
+const jpgSizeLabel = computed(() => {
+  const id = selectedImage.value?.id
+  const size = id ? jpgSizeMap.get(id) : undefined
+  return size ? `JPG (${formatBytes(size)})` : 'JPG'
+})
+
+// ZIP overhead: local file header (30 + name) + central directory entry (46 + name) + end record (22)
+function estimateZipSize(files: { name: string; size: number }[]): number {
+  let total = 22
+  for (const file of files) {
+    total += file.size + 76 + (file.name.length * 2)
+  }
+  return total
+}
+
+const footerPngLabel = computed(() => {
+  if (images.value.length <= 1) return pngSizeLabel.value
+  const files = images.value
+    .filter(img => img.ditheredBlob)
+    .map(img => ({
+      name: `${img.fileName.replace(/\.[^.]+$/, '')}-dithered.png`,
+      size: img.ditheredBlob!.size
+    }))
+  return files.length > 0 ? `PNG ZIP (${formatBytes(estimateZipSize(files))})` : 'PNG'
+})
+
+const footerJpgLabel = computed(() => {
+  if (images.value.length <= 1) return jpgSizeLabel.value
+  const files = images.value
+    .filter(img => jpgSizeMap.has(img.id))
+    .map(img => ({
+      name: `${img.fileName.replace(/\.[^.]+$/, '')}-dithered.jpg`,
+      size: jpgSizeMap.get(img.id)!
+    }))
+  return files.length > 0 ? `JPG ZIP (${formatBytes(estimateZipSize(files))})` : 'JPG'
+})
+
+async function convertBlobToFormat(pngBlob: Blob, mimeType: string, quality = 0.92): Promise<Blob> {
+  const img = new Image()
+  const url = URL.createObjectURL(pngBlob)
+  await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url })
+  URL.revokeObjectURL(url)
+  const canvas = document.createElement('canvas')
+  canvas.width = img.width
+  canvas.height = img.height
+  const ctx = canvas.getContext('2d')!
+  if (mimeType === 'image/jpeg') {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  ctx.drawImage(img, 0, 0)
+  return new Promise(resolve => canvas.toBlob(b => resolve(b!), mimeType, quality))
+}
+
+function convertBlobToJpeg(pngBlob: Blob, quality = 0.92): Promise<Blob> {
+  return convertBlobToFormat(pngBlob, 'image/jpeg', quality)
+}
+
+async function downloadSingleImage(format: 'png' | 'jpg') {
   if (!selectedImage.value?.ditheredBlob) return
-  const url = URL.createObjectURL(selectedImage.value.ditheredBlob)
+  const blob = format === 'jpg'
+    ? await convertBlobToJpeg(selectedImage.value.ditheredBlob)
+    : selectedImage.value.ditheredBlob
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   const baseName = selectedImage.value.fileName.replace(/\.[^.]+$/, '')
-  link.download = `${baseName}-dithered.png`
+  link.download = `${baseName}-dithered.${format}`
   link.href = url
   link.click()
   URL.revokeObjectURL(url)
 }
 
-async function handleDownload() {
+async function handleDownload(format: 'png' | 'jpg') {
   if (images.value.length > 1) {
-    await downloadAll(processImageForDither)
+    await downloadAll(processImageForDither, format, convertBlobToJpeg)
   } else {
-    downloadSingleImage()
+    await downloadSingleImage(format)
   }
 }
 
@@ -434,16 +574,23 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
                 >
                   <span class="hidden lg:inline">Compare</span>
                 </UButton>
-                <UButton
-                  icon="i-lucide-download"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  :disabled="!selectedImage.ditheredDataUrl"
-                  @click="downloadSingleImage"
-                >
-                  <span class="hidden lg:inline">Download</span>
-                </UButton>
+                <UPopover>
+                  <UButton
+                    icon="i-lucide-download"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :disabled="!selectedImage.ditheredDataUrl"
+                  >
+                    <span class="hidden lg:inline">Download</span>
+                  </UButton>
+                  <template #content="{ close }">
+                    <div class="flex flex-col gap-1 p-2">
+                      <UButton :label="pngSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="downloadSingleImage('png'); close()" />
+                      <UButton :label="jpgSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="downloadSingleImage('jpg'); close()" />
+                    </div>
+                  </template>
+                </UPopover>
                 <UButton
                   v-if="!isDefaultImage"
                   icon="i-lucide-trash-2"
@@ -468,7 +615,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
           >
             <FileSizeReport
               :original-size="selectedImage.originalFileSize"
-              :dithered-file-size="selectedImage.ditheredFileSize"
+              :dithered-file-size="scorecardDitheredSize"
               :file-name="selectedImage.fileName"
               class="w-full"
             />
@@ -499,16 +646,22 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
               <UIcon name="i-lucide-plus" class="size-5" />
             </button>
           </div>
-          <UButton
-            icon="i-lucide-download"
-            color="primary"
-            variant="outline"
-            size="sm"
-            class="lg:hidden shrink-0"
-            :loading="isDownloadingAll"
-            :disabled="!selectedImage?.ditheredDataUrl"
-            @click="handleDownload"
-          />
+          <UPopover class="lg:hidden shrink-0">
+            <UButton
+              icon="i-lucide-download"
+              color="primary"
+              variant="solid"
+              size="md"
+              :loading="isDownloadingAll"
+              :disabled="!selectedImage?.ditheredDataUrl"
+            />
+            <template #content="{ close }">
+              <div class="flex flex-col gap-1 p-2">
+                <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('png'); close()" />
+                <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
+              </div>
+            </template>
+          </UPopover>
         </div>
         <div class="hidden lg:block flex-1" />
 
@@ -524,17 +677,24 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, pal
           >
             <span>Clear All</span>
           </UButton>
-          <UButton
-            icon="i-lucide-download"
-            color="primary"
-            variant="outline"
-            size="sm"
-            :loading="isDownloadingAll"
-            :disabled="!selectedImage?.ditheredDataUrl"
-            @click="handleDownload"
-          >
-            <span>{{ images.length > 1 ? 'Download All' : 'Download' }}</span>
-          </UButton>
+          <UPopover>
+            <UButton
+              icon="i-lucide-download"
+              color="primary"
+              variant="solid"
+              size="md"
+              :loading="isDownloadingAll"
+              :disabled="!selectedImage?.ditheredDataUrl"
+            >
+              <span>Download All</span>
+            </UButton>
+            <template #content="{ close }">
+              <div class="flex flex-col gap-1 p-2">
+                <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('png'); close()" />
+                <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-900 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
+              </div>
+            </template>
+          </UPopover>
         </div>
       </footer>
 

@@ -6,6 +6,7 @@ export interface GalleryImage {
   fileName: string
   originalSrc: string
   originalFileSize: number // in bytes
+  originalMimeType: string // e.g. 'image/jpeg', 'image/png'
   ditheredDataUrl: string | null // blob URL for display
   ditheredBlob: Blob | null // raw PNG blob for download/zip
   ditheredFileSize: number | null // blob.size in bytes
@@ -80,6 +81,7 @@ export function useImageGallery() {
         fileName: file.name,
         originalSrc: dataUrl,
         originalFileSize: file.size,
+        originalMimeType: file.type || 'image/png',
         ditheredDataUrl: null,
         ditheredBlob: null,
         ditheredFileSize: null,
@@ -187,7 +189,9 @@ export function useImageGallery() {
   }
 
   async function downloadAll(
-    processImage: (image: GalleryImage) => Promise<{ url: string; blob: Blob }>
+    processImage: (image: GalleryImage) => Promise<{ url: string; blob: Blob }>,
+    format: 'png' | 'jpg' = 'png',
+    convertToJpeg?: (blob: Blob) => Promise<Blob>
   ) {
     if (images.value.length === 0) return
 
@@ -219,9 +223,11 @@ export function useImageGallery() {
         }
 
         if (blob) {
+          if (format === 'jpg' && convertToJpeg) {
+            blob = await convertToJpeg(blob)
+          }
           const baseName = image.fileName.replace(/\.[^.]+$/, '')
-          // Use blob directly — no base64 conversion needed
-          zip.file(`${baseName}-dithered.png`, blob)
+          zip.file(`${baseName}-dithered.${format}`, blob)
         }
       }
 

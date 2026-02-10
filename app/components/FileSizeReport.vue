@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   originalSize: number // in bytes
-  ditheredFileSize: number | null // in bytes, from blob.size
+  ditheredFileSize: number | null // in bytes, in the original file format
   fileName?: string
 }>()
 
@@ -33,7 +33,7 @@ const savedKb = computed(() => {
     <p v-if="fileName" class="mb-2 w-full truncate text-center text-sm text-gray-500 dark:text-gray-400">{{ fileName }}</p>
 
     <!-- Donut Chart -->
-    <div class="w-full">
+    <div class="-mx-4 w-[calc(100%+2rem)]">
       <svg viewBox="0 0 42 42" class="w-full">
         <!-- Background ring -->
         <circle
@@ -67,8 +67,7 @@ const savedKb = computed(() => {
           class="fill-current"
           :class="ditheredFileSize ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600'"
         >
-          <tspan x="21" dy="-0.4em" font-size="4" font-weight="bold">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
-          <tspan x="21" dy="1.2em" font-size="2.5" class="fill-current text-gray-500 dark:text-gray-400">of original</tspan>
+          <tspan x="21" font-size="6" font-weight="bold">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
         </text>
       </svg>
     </div>
