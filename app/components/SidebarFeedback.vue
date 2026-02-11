@@ -2,24 +2,16 @@
 const toast = useToast()
 const isModalOpen = ref(false)
 const isSubmitting = ref(false)
-const formName = ref('')
-const formEmail = ref('')
-const formMessage = ref('')
 
-async function handleSubmit() {
-  if (!formName.value || !formEmail.value || !formMessage.value) return
+async function handleSubmit(event: Event) {
+  const form = event.target as HTMLFormElement
   isSubmitting.value = true
   try {
-    const body = new URLSearchParams({
-      'form-name': 'contact',
-      'name': formName.value,
-      'email': formEmail.value,
-      'message': formMessage.value
-    }).toString()
+    const formData = new FormData(form)
     const response = await fetch('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
+      body: new URLSearchParams(formData as any).toString()
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     toast.add({
@@ -27,9 +19,7 @@ async function handleSubmit() {
       description: 'Thanks for your feedback.',
       color: 'success'
     })
-    formName.value = ''
-    formEmail.value = ''
-    formMessage.value = ''
+    form.reset()
     isModalOpen.value = false
   } catch {
     toast.add({
@@ -44,6 +34,13 @@ async function handleSubmit() {
 </script>
 
 <template>
+  <!-- Hidden form for Netlify detection at build time -->
+  <form name="contact" netlify netlify-honeypot="bot-field" hidden>
+    <input type="text" name="name" />
+    <input type="email" name="email" />
+    <textarea name="message"></textarea>
+  </form>
+
   <UModal v-model:open="isModalOpen">
     <div class="m-4 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg">
       <h2 class="pb-2 font-bold">📋 Improve Dither it!</h2>
@@ -57,13 +54,25 @@ async function handleSubmit() {
       <div class="px-4 py-4">
         <h2 class="text-lg font-semibold text-highlighted mb-4">Submit Feedback</h2>
 
-        <div class="space-y-4">
+        <form
+          name="contact"
+          method="POST"
+          data-netlify="true"
+          netlify-honeypot="bot-field"
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
+        >
+          <input type="hidden" name="form-name" value="contact" />
+          <p class="hidden">
+            <label>Don't fill this out if you're human: <input name="bot-field" /></label>
+          </p>
+
           <div class="space-y-2">
             <label for="feedback-name" class="block text-sm font-medium text-highlighted">Name</label>
             <input
-              v-model="formName"
               type="text"
               id="feedback-name"
+              name="name"
               required
               class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors"
             />
@@ -72,9 +81,9 @@ async function handleSubmit() {
           <div class="space-y-2">
             <label for="feedback-email" class="block text-sm font-medium text-highlighted">Email</label>
             <input
-              v-model="formEmail"
               type="email"
               id="feedback-email"
+              name="email"
               required
               class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors"
             />
@@ -83,8 +92,8 @@ async function handleSubmit() {
           <div class="space-y-2">
             <label for="feedback-message" class="block text-sm font-medium text-highlighted">Message</label>
             <textarea
-              v-model="formMessage"
               id="feedback-message"
+              name="message"
               rows="5"
               required
               class="w-full px-3 py-2 rounded-md bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors resize-none"
@@ -92,13 +101,13 @@ async function handleSubmit() {
           </div>
 
           <UButton
+            type="submit"
             label="Send Message"
             color="primary"
             :loading="isSubmitting"
-            :disabled="isSubmitting || !formName || !formEmail || !formMessage"
-            @click="handleSubmit"
+            :disabled="isSubmitting"
           />
-        </div>
+        </form>
       </div>
     </template>
   </UModal>
