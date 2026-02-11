@@ -6,7 +6,7 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "preview": "nuxt preview",
-    "generate": "nuxt generate",
+    "generate": "nuxt generate && node scripts/inject-netlify-form.js",
     "postinstall": "node scripts/patch-rgbquant.js && nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck"
