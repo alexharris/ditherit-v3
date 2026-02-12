@@ -35,8 +35,8 @@ export function useImageGallery() {
     return `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   }
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
-  const MAX_DIMENSION = 5000
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+  const MAX_DIMENSION = 10000
 
   function readFileAsDataURL(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
