@@ -56,10 +56,13 @@ export function useImageGallery() {
     })
   }
 
-  async function addImages(files: FileList | File[]): Promise<{ tooLarge: string[]; tooWide: string[]; added: number }> {
+  const LARGE_FILE_THRESHOLD = 2 * 1024 * 1024 // 2 MB
+
+  async function addImages(files: FileList | File[]): Promise<{ tooLarge: string[]; tooWide: string[]; largeFiles: string[]; added: number }> {
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
     const tooLarge: string[] = []
     const tooWide: string[] = []
+    const largeFiles: string[] = []
     let added = 0
 
     for (const file of fileArray) {
@@ -90,6 +93,10 @@ export function useImageGallery() {
       }
       images.value.push(newImage)
 
+      if (file.size > LARGE_FILE_THRESHOLD) {
+        largeFiles.push(file.name)
+      }
+
       added++
 
       // Auto-select if this is the first image
@@ -98,7 +105,7 @@ export function useImageGallery() {
       }
     }
 
-    return { tooLarge, tooWide, added }
+    return { tooLarge, tooWide, largeFiles, added }
   }
 
   async function addImageFromUrl(url: string, fileName: string) {

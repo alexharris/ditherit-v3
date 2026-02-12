@@ -78,19 +78,26 @@ function handleDragLeave(e: DragEvent) {
   isDragging.value = false
 }
 
-function warnRejectedFiles(rejected: { tooLarge: string[]; tooWide: string[] }) {
-  if (rejected.tooLarge.length > 0) {
+function warnRejectedFiles(result: { tooLarge: string[]; tooWide: string[]; largeFiles: string[] }) {
+  if (result.tooLarge.length > 0) {
     toast.add({
       title: 'File too large',
-      description: `${rejected.tooLarge.join(', ')} exceeded the 2.5 MB limit and was not added.`,
+      description: `${result.tooLarge.join(', ')} exceeded the 2.5 MB limit and was not added.`,
       color: 'error'
     })
   }
-  if (rejected.tooWide.length > 0) {
+  if (result.tooWide.length > 0) {
     toast.add({
       title: 'Image too large',
-      description: `${rejected.tooWide.join(', ')} exceeds 4000px and was not added.`,
+      description: `${result.tooWide.join(', ')} exceeds 4000px and was not added.`,
       color: 'error'
+    })
+  }
+  if (result.largeFiles.length > 0) {
+    toast.add({
+      title: 'Large file warning',
+      description: `${result.largeFiles.join(', ')} ${result.largeFiles.length === 1 ? 'is' : 'are'} over 2 MB. You may experience slow load times or degraded performance. Consider reducing image size first.`,
+      color: 'warning'
     })
   }
 }
