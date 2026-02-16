@@ -72,6 +72,7 @@ const serpentine = ref(false)
 const pixeliness = ref(1)
 const pixelScale = ref(1)
 const bayerSize = ref<BayerSize>(4)
+const smoothPixels = ref(false)
 const palette = ref<number[][]>([])
 
 // RgbQuant instance cache — reused when only algorithm/serpentine changes
@@ -187,7 +188,7 @@ export function useDithering() {
           // Worker failed — fall back to main-thread Bayer dithering
           ctx.drawImage(sourceImage, 0, 0, ditherWidth, ditherHeight)
           const freshImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value, bayerSize.value)
+          bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value, bayerSize.value, smoothPixels.value)
         }
       } else {
         // --- Error diffusion path: cache RgbQuant instance ---
@@ -230,7 +231,7 @@ export function useDithering() {
 
       // Post-process pixelation (operates on upscaled result)
       if (pixeliness.value > 1) {
-        addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value)
+        addPixelation(ctx, targetCanvas, finalWidth, finalHeight, pixeliness.value, smoothPixels.value)
       }
 
       // Async PNG encoding — doesn't block the main thread
@@ -262,6 +263,7 @@ export function useDithering() {
     pixeliness,
     pixelScale,
     bayerSize,
+    smoothPixels,
     palette,
 
     // Computed

@@ -55,14 +55,15 @@ export function addPixelation(
   sourceCanvas: HTMLCanvasElement,
   width: number,
   height: number,
-  blockSize: number
+  blockSize: number,
+  smoothDownscale = false
 ) {
   const tempCanvas = document.createElement('canvas')
   const tempCtx = tempCanvas.getContext('2d')!
   tempCanvas.width = width / blockSize
   tempCanvas.height = height / blockSize
 
-  tempCtx.imageSmoothingEnabled = false
+  tempCtx.imageSmoothingEnabled = smoothDownscale
   tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height)
 
   ctx.imageSmoothingEnabled = false
@@ -84,7 +85,8 @@ export function bayerDither(
   imageData: ImageData,
   palette: number[][],
   blockSize: number,
-  bayerSize: BayerSize = 4
+  bayerSize: BayerSize = 4,
+  smoothDownscale = false
 ) {
   const matrix = BAYER_MATRICES[bayerSize]
   const size = bayerSize
@@ -114,6 +116,6 @@ export function bayerDither(
   ctx.putImageData(imageData, 0, 0)
 
   if (blockSize > 1) {
-    addPixelation(ctx, ctx.canvas, imageData.width, imageData.height, blockSize)
+    addPixelation(ctx, ctx.canvas, imageData.width, imageData.height, blockSize, smoothDownscale)
   }
 }

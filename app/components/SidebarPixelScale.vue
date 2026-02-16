@@ -1,7 +1,8 @@
 <script setup lang="ts">
 const {
   pixeliness,
-  pixelScale
+  pixelScale,
+  smoothPixels
 } = useDithering()
 
 const advancedOpen = ref(false)
@@ -36,17 +37,29 @@ const advancedOpen = ref(false)
   </div>
 
   <div v-if="advancedOpen" class="px-4 pb-4">
-    <HelpTooltip>
-      <template #label>
-        <span class="text-sm font-medium text-highlighted">Pixeliness</span>
-      </template>
-      <template #help>
-        Like pixel scale but more chaotic. Might introduce colors not in the selected palette.
-      </template>
-      <div class="mt-2">
-        <USlider v-model="pixeliness" :min="1" :max="25" :step="1" />
-        <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
-      </div>
-    </HelpTooltip>
+    <div class="rounded-lg bg-gray-50 p-3 space-y-4 dark:bg-gray-900">
+      <HelpTooltip>
+        <template #label>
+          <span class="text-sm font-medium text-highlighted">Pixeliness</span>
+        </template>
+        <template #help>
+          Like pixel scale but more chaotic.
+        </template>
+        <div class="mt-2">
+          <USlider v-model="pixeliness" :min="1" :max="25" :step="1" />
+          <span class="text-xs text-gray-500">{{ pixeliness }}x</span>
+        </div>
+      </HelpTooltip>
+      <HelpTooltip>
+        <template #label>
+          <UCheckbox v-model="smoothPixels" label="Smooth pixels" />
+        </template>
+        <template #help>
+          Blend colors when pixelating instead of using strict nearest-neighbor. Produces softer results but may introduce colors outside the palette.
+        </template>
+      </HelpTooltip>
+    </div>
   </div>
+
+  <USeparator />
 </template>
