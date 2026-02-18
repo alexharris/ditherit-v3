@@ -84,8 +84,8 @@ This document tracks features from the original ditherit that need to be impleme
 ## Low Priority (Polish)
 
 ### Branding
-- [ ] Custom logo component
-- [ ] Favicon updates
+- [x] Custom logo component
+- [x] Favicon updates
 - [ ] OG image for social sharing
 
 ### Analytics
