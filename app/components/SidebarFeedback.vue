@@ -42,7 +42,7 @@ async function handleSubmit(event: Event) {
   </form>
 
   <UModal v-model:open="isModalOpen">
-    <div class="m-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+    <div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
       <h2 class="pb-2 font-bold">📋 Improve Dither it!</h2>
       <p class="pb-2">Found a bug? Have an idea for a feature? Let me know!</p>
       <span class="text-sm font-medium text-blue-600 underline text-highlighted cursor-pointer transition-colors">

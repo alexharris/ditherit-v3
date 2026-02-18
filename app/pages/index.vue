@@ -44,6 +44,7 @@ const {
 } = usePalette()
 
 const toast = useToast()
+const colorMode = useColorMode()
 
 const fileInputRef = ref<HTMLInputElement>()
 const canvasRef = ref<HTMLCanvasElement>()
@@ -530,9 +531,16 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
 
       <!-- Sidebar Footer -->
       <div
-        class="flex shrink-0 items-center border-t border-gray-200 p-4 dark:border-gray-800"
+        class="flex shrink-0 items-center justify-between border-t border-gray-200 p-4 dark:border-gray-800"
       >
         <span class="text-sm text-gray-500 dark:text-gray-400">v3</span>
+        <UButton
+          :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+        />
       </div>
     </aside>
 

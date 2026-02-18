@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
+const isMenuOpen = ref(false)
 </script>
 
 <template>
@@ -10,12 +11,37 @@ const colorMode = useColorMode()
       </svg>
       <UBadge size="xs" color="neutral" variant="subtle" class="ml-1.5 align-middle">beta</UBadge>
     </span>
+
+    <!-- Mobile menu button (hidden on desktop) -->
     <UButton
-      :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+      class="lg:hidden"
+      icon="i-lucide-menu"
       color="neutral"
       variant="ghost"
       size="sm"
-      @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+      aria-label="Menu"
+      @click="isMenuOpen = true"
     />
   </header>
+
+  <!-- Mobile app menu drawer (hidden on desktop) -->
+  <UDrawer v-model:open="isMenuOpen" class="lg:hidden">
+    <template #body>
+      <div class="flex flex-col gap-4 p-4">
+        <!-- Dark mode -->
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Dark mode</span>
+          <UButton
+            :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+          />
+        </div>
+        <USeparator />
+        <SidebarFeedback />
+      </div>
+    </template>
+  </UDrawer>
 </template>
