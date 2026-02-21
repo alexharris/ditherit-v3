@@ -47,7 +47,7 @@ This document tracks features from the original ditherit that need to be impleme
 - [ ] Examples for different palettes
 
 ### Help System
-- [ ] Contextual help tooltips for controls
+- [x] Contextual help tooltips for controls
 - [ ] Explanation for Dither Mode
 - [ ] Explanation for Image Size options
 - [ ] Explanation for palette features

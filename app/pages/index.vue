@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ keepalive: true })
+
 import { loadImage } from '~/composables/useDithering'
 import type { GalleryImage } from '~/composables/useImageGallery'
 import defaultImageUrl from '~/assets/examples/quantfrog.png'
