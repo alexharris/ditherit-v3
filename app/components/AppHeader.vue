@@ -9,7 +9,6 @@ const isMenuOpen = ref(false)
 const navItems = [
   { id: 'about', label: 'About', icon: 'i-lucide-info', to: '/about' },
   { id: 'resources', label: 'Resources', icon: 'i-lucide-book-open', to: '/resources' },
-  { id: 'updates', label: 'Updates', icon: 'i-lucide-scroll-text', to: '/updates' },
   { id: 'contact', label: 'Contact', icon: 'i-lucide-mail', to: '/contact' },
 ]
 
@@ -43,6 +42,15 @@ function mobileNavigate(to: string) {
         :to="item.to"
       />
     </nav>
+
+    <!-- Support button (desktop) -->
+    <NuxtLink
+      to="/support"
+      class="mr-2 hidden items-center gap-1.5 rounded-md border border-ditherit px-3 py-1.5 text-sm font-medium text-ditherit transition-colors hover:bg-ditherit hover:text-white lg:inline-flex"
+    >
+      <UIcon name="i-lucide-heart" class="size-4" />
+      Support
+    </NuxtLink>
 
     <!-- Desktop dark mode toggle (hidden on mobile) -->
     <UButton
@@ -108,6 +116,17 @@ function mobileNavigate(to: string) {
         </div>
 
         <USeparator />
+
+        <!-- Support CTA -->
+        <NuxtLink
+          to="/support"
+          class="flex items-center justify-center gap-2 rounded-md border border-ditherit px-3 py-2 text-sm font-medium text-ditherit transition-colors hover:bg-ditherit hover:text-white"
+          @click="isMenuOpen = false"
+        >
+          <UIcon name="i-lucide-heart" class="size-4" />
+          Support Dither it!
+        </NuxtLink>
+
         <SidebarFeedback />
       </div>
     </template>

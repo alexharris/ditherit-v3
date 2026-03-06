@@ -29,8 +29,8 @@ const savedKb = computed(() => {
 
 <template>
   <div class="flex flex-col items-center">
-    <!-- File name -->
-    <p v-if="fileName" class="mb-2 w-full truncate text-center text-sm text-gray-500 dark:text-gray-400">{{ fileName }}</p>
+    <!-- Card title -->
+    <p class="mb-3 w-full text-center text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">File Size</p>
 
     <!-- Donut Chart -->
     <div class="-mx-4 w-[calc(100%+2rem)]">
@@ -71,6 +71,9 @@ const savedKb = computed(() => {
         </text>
       </svg>
     </div>
+
+    <!-- File name -->
+    <p v-if="fileName" class="mt-2 w-full truncate text-center text-xs text-gray-400 dark:text-gray-500">{{ fileName }}</p>
 
     <!-- Size details -->
     <div class="mt-4 w-full space-y-2 text-sm">

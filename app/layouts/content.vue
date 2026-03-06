@@ -8,7 +8,7 @@ const title = computed(() => {
 const navItems = [
   { label: 'About', to: '/about' },
   { label: 'Resources', to: '/resources' },
-  { label: 'Updates', to: '/updates' },
+  { label: 'Support', to: '/support' },
   { label: 'Contact', to: '/contact' },
 ]
 </script>

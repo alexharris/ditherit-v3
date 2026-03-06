@@ -686,7 +686,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
         </main>
 
         <!-- Right Sidebar (desktop only) -->
-        <aside class="hidden lg:block w-48 shrink-0 overflow-y-auto p-4">
+        <aside class="hidden lg:block w-48 shrink-0 overflow-y-auto pl-0 pr-4 pt-4 pb-4">
           <div
             v-if="selectedImage"
             class="rounded-xl border border-gray-200 bg-white/90 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-gray-950/90"
