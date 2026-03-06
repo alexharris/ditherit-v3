@@ -9,6 +9,26 @@ import { useBenchmark } from '~/composables/useBenchmark'
 definePageMeta({ layout: 'content' })
 useSeoMeta({ title: 'Performance Benchmarks — Dither it!' })
 
+// ── Standard benchmarks (auto-run on mount, frog image only) ─────────────────
+
+const {
+  results: standardResults,
+  isRunning: standardRunning,
+  runBenchmark: runStandard
+} = useBenchmark()
+
+const STANDARD_CONFIG: BenchmarkConfig = {
+  diffusionAlgorithms: ['FloydSteinberg', 'Atkinson', 'Stucki'],
+  bayerSizes: [4],
+  colorCounts: [8],
+  pixelScales: [1],
+  pixelinessValues: [1],
+  serpentineOptions: [false],
+  paletteModes: ['auto']
+}
+
+// ── User benchmark ────────────────────────────────────────────────────────────
+
 const {
   results, isRunning, progressDone, progressTotal,
   progressLabel, elapsedSec, runBenchmark, cancel
@@ -274,14 +294,99 @@ const progressPct = computed(() => {
   return Math.round((progressDone.value / progressTotal.value) * 100)
 })
 
-// Load initial image
-onMounted(() => {
-  loadBuiltinImage()
+// Load initial image then kick off standard benchmarks
+onMounted(async () => {
+  await loadBuiltinImage()
+  if (testImage.value && inputBlob.value) {
+    runStandard(testImage.value, inputBlob.value, STANDARD_CONFIG)
+  }
 })
 </script>
 
 <template>
   <div class="space-y-6">
+    <!-- Standard benchmarks -->
+    <div class="space-y-3">
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Standard Benchmarks
+        </h2>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Floyd-Steinberg, Atkinson, Stucki, and Bayer 4×4 — auto 8 colors, run automatically on page load.
+          <span v-if="inputBlob">Original: {{ (inputBlob.size / 1024).toFixed(1) }} KB.</span>
+        </p>
+      </div>
+
+      <!-- Loading state -->
+      <div
+        v-if="standardRunning"
+        class="flex items-center gap-2 text-sm text-gray-400"
+      >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-4 animate-spin"
+        />
+        Running…
+      </div>
+
+      <!-- Results cards -->
+      <div
+        v-else-if="standardResults.length > 0"
+        class="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <div
+          v-for="r in standardResults"
+          :key="r.id"
+          class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+        >
+          <img
+            :src="r.thumbnailUrl"
+            class="mb-2 w-full rounded object-cover"
+            style="image-rendering: pixelated; aspect-ratio: 1;"
+            alt=""
+          >
+          <p class="truncate font-mono text-xs font-semibold text-gray-800 dark:text-gray-200">
+            {{ r.algorithm }}
+          </p>
+          <div class="mt-1.5 space-y-0.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-400">Time</span>
+              <span class="tabular-nums text-gray-600 dark:text-gray-400">{{ r.processingTimeMs }} ms</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-400">Size</span>
+              <span class="tabular-nums text-gray-600 dark:text-gray-400">{{ (r.outputFileSizeBytes / 1024).toFixed(1) }} KB</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-400">MSE</span>
+              <span class="tabular-nums text-gray-600 dark:text-gray-400">{{ r.mse }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Glossary -->
+      <dl
+        v-if="standardResults.length > 0"
+        class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400 dark:text-gray-500"
+      >
+        <div class="flex gap-1">
+          <dt class="font-medium">Time —</dt>
+          <dd>milliseconds to process the image</dd>
+        </div>
+        <div class="flex gap-1">
+          <dt class="font-medium">Size —</dt>
+          <dd>output PNG file size</dd>
+        </div>
+        <div class="flex gap-1">
+          <dt class="font-medium">MSE —</dt>
+          <dd>mean squared error vs. the original; lower means closer to the source</dd>
+        </div>
+      </dl>
+    </div>
+
+    <USeparator />
+
     <!-- Config panel -->
     <UCard>
       <div class="space-y-5">
