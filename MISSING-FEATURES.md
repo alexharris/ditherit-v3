@@ -53,17 +53,17 @@ This document tracks features from the original ditherit that need to be impleme
 - [ ] Explanation for palette features
 
 ### Resources Page
-- [ ] `/resources` route
-- [ ] Curated list of dithering resources
-- [ ] Links to tools, articles, tutorials
+- [x] `/resources` route
+- [x] Curated list of dithering resources
+- [x] Links to tools, articles, tutorials
 
 ---
 
 ## Medium Priority (Nice to Have)
 
 ### Updates/Changelog Section
-- [ ] Display recent updates
-- [ ] Feature announcements with timestamps
+- [x] Display recent updates
+- [x] Feature announcements with timestamps
 - [ ] Scrollable changelog
 
 ### Contact Form
@@ -108,6 +108,7 @@ This document tracks features from the original ditherit that need to be impleme
 - [x] Pixeliness/block size control
 - [x] Dark mode support
 - [x] Drag and drop upload
+- [x] Clipboard paste upload (Cmd/Ctrl+V)
 - [x] Download dithered image
 - [x] Collapsible sidebar
 - [x] Palette preview (read-only)
