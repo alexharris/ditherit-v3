@@ -102,9 +102,9 @@ export function bayerDither(
 
     const threshold = matrix[x % size]![y % size]!
 
-    const map = Math.floor((imageData.data[currentPixel]! + threshold) / 2)
-    const map2 = Math.floor((imageData.data[currentPixel + 1]! + threshold) / 2)
-    const map3 = Math.floor((imageData.data[currentPixel + 2]! + threshold) / 2)
+    const map = Math.max(0, Math.min(255, imageData.data[currentPixel]! + 128 - threshold))
+    const map2 = Math.max(0, Math.min(255, imageData.data[currentPixel + 1]! + 128 - threshold))
+    const map3 = Math.max(0, Math.min(255, imageData.data[currentPixel + 2]! + 128 - threshold))
 
     const closestColor = getClosestColor(newPalette, [map, map2, map3])
 

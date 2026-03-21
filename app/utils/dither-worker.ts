@@ -77,9 +77,9 @@ self.onmessage = function (e: MessageEvent<BayerMessage>) {
     const row = matrix[x % size]!
     const threshold = row[y % size]!
 
-    const r = Math.floor((data[i]! + threshold) / 2)
-    const g = Math.floor((data[i + 1]! + threshold) / 2)
-    const b = Math.floor((data[i + 2]! + threshold) / 2)
+    const r = Math.max(0, Math.min(255, data[i]! + 128 - threshold))
+    const g = Math.max(0, Math.min(255, data[i + 1]! + 128 - threshold))
+    const b = Math.max(0, Math.min(255, data[i + 2]! + 128 - threshold))
 
     const key = (r << 16) | (g << 8) | b
     let closest = colorCache.get(key)
