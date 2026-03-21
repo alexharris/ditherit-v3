@@ -89,34 +89,25 @@ const resourceSections = [
     <div
       v-for="section in resourceSections"
       :key="section.title"
-      class="space-y-1"
+      class="space-y-1.5"
     >
-      <p class="px-1 text-sm font-semibold uppercase tracking-wider text-gray-400">
+      <p class="text-sm font-semibold uppercase tracking-wider text-gray-400">
         {{ section.title }}
       </p>
-      <div class="space-y-0.5">
-        <a
+      <ul class="space-y-1">
+        <li
           v-for="link in section.links"
           :key="link.url"
-          :href="link.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="group flex items-start justify-between gap-2 rounded-lg px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-900"
         >
-          <div>
-            <div class="text-base font-medium text-gray-800 group-hover:text-[--ui-primary] dark:text-gray-200">
-              {{ link.title }}
-            </div>
-            <div class="mt-0.5 text-sm text-gray-500">
-              {{ link.description }}
-            </div>
-          </div>
-          <UIcon
-            name="i-lucide-arrow-up-right"
-            class="mt-0.5 size-3.5 shrink-0 text-gray-400 group-hover:text-[--ui-primary]"
-          />
-        </a>
-      </div>
+          <a
+            :href="link.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-[--ui-primary] underline underline-offset-2 hover:opacity-75"
+          >{{ link.title }}</a>
+          <div class="text-sm text-gray-500">{{ link.description }}</div>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
