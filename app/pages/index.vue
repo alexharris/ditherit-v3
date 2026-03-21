@@ -142,6 +142,28 @@ function triggerFileInput() {
   fileInputRef.value?.click()
 }
 
+async function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  const imageFiles: File[] = []
+  for (const item of Array.from(items)) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) imageFiles.push(file)
+    }
+  }
+  if (imageFiles.length === 0) return
+  e.preventDefault()
+  const wasIntro = isIntro.value
+  const oldIds = wasIntro ? images.value.map(img => img.id) : []
+  const result = await addImages(imageFiles)
+  if (wasIntro && result.added > 0) {
+    isIntro.value = false
+    oldIds.forEach(id => removeImage(id))
+  }
+  warnRejectedFiles(result)
+}
+
 // Process a single image — uses cached image loading
 async function processImageForDither(image: GalleryImage, width?: number): Promise<{ url: string; blob: Blob }> {
   const img = await loadImage(image.originalSrc)
@@ -417,6 +439,11 @@ onMounted(() => {
   if (!hasImages.value) {
     addImageFromUrl(defaultImageUrl, 'quantfrog.png')
   }
+  document.addEventListener('paste', handlePaste)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('paste', handlePaste)
 })
 
 // Reload the frog when the last image is removed
@@ -577,7 +604,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
           >
             <!-- Intro upload hint -->
             <div v-if="isIntro" class="absolute left-0 right-0 top-16 lg:top-24 flex items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-              <span>Drop your own images here or</span>
+              <span>Drop or paste images here, or</span>
               <UButton
                 icon="i-lucide-upload"
                 label="Upload"
