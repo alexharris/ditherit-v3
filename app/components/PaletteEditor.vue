@@ -25,6 +25,8 @@ const editingIndex = ref<number | null>(null)
 const activeTab = ref<'edit' | 'save' | 'export' | 'import' | null>(null)
 const newPaletteName = ref('')
 const importJson = ref('')
+const hexInput = ref('')
+const pickerHex = ref('')
 
 // Build dropdown options
 const presetOptions = computed(() => {
@@ -52,6 +54,25 @@ const editingColor = computed(() => {
   if (editingIndex.value === null) return null
   return props.palette[editingIndex.value] ?? null
 })
+
+watch(editingColor, (color) => {
+  hexInput.value = color?.hex ?? ''
+  pickerHex.value = color?.hex ?? ''
+})
+
+// Update the picker only when hexInput is a complete valid hex
+watch(hexInput, (val) => {
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    pickerHex.value = val
+  }
+})
+
+function commitHex() {
+  if (editingIndex.value !== null && hexInput.value) {
+    emit('setColor', editingIndex.value, hexInput.value)
+  }
+  editingIndex.value = null
+}
 
 function handlePresetChange(value: string) {
   emit('selectPreset', value)
@@ -159,22 +180,22 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
     <!-- Color Editor (when editing) -->
     <div v-if="editingIndex !== null && editingColor" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg space-y-2">
       <UColorPicker
-        :model-value="editingColor.hex"
+        :model-value="pickerHex"
         size="sm"
-        @update:model-value="(val: string | undefined) => val && emit('setColor', editingIndex!, val)"
+        @update:model-value="(val: string | undefined) => { if (val) { pickerHex = val; hexInput = val } }"
       />
       <div class="flex items-center gap-2">
         <UInput
-          :model-value="editingColor.hex"
+          v-model="hexInput"
           size="xs"
           class="flex-1 font-mono"
-          @update:model-value="(val: string) => emit('setColor', editingIndex!, val)"
+          @keyup.enter="commitHex"
         />
         <UButton
-          icon="i-lucide-check"
+          label="Done"
           color="primary"
           size="xs"
-          @click="editingIndex = null"
+          @click="commitHex"
         />
       </div>
     </div>
